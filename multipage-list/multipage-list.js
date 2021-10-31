@@ -383,8 +383,12 @@ class MultipageViewer extends HidableElement{
       host.filtered = store.size ? host.data.filter(filterFn) : null
     }
     
-    this.clear = function(){
-      store.clear();
+    this.clear = function(id){
+      if(id){
+        store.delete(id)
+      }else{
+        store.clear()
+      }
       execFilters();
       return host.setView(1);
     }
