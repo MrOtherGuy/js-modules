@@ -1,0 +1,26 @@
+:host{
+  display: flex;
+  align-items: stretch;
+  user-select: none
+}
+
+div{
+  border: 1px solid;
+  border-radius: 4px;
+  margin: 2px;
+  padding: 0.2em;
+  width: 3ch;
+  text-align: center;
+  cursor: pointer
+}
+div:hover{ background: rgba(0,0,0,0.3) }
+.page-num::before{ content: attr(data-value) }  
+.page-num:first-of-type,
+.page-num:last-child{ width: 5ch }
+.page-num:first-of-type::before,
+.page-num:last-child::before{ content: none }
+
+.page-num.selected{ background: var(--track-selected-color,lightblue) }
+
+.hidden,
+.previous+.hidden~:not([data-value="2"]){ display:none }

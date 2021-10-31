@@ -1,0 +1,51 @@
+:root{
+  --accent-color: #9ac;
+  --border-color: #79b;
+  --title-color: #422;
+  --background-color: rgb(240,244,255);
+  --secondary-background-color: rgba(0,0,100,.1);
+  --active-color: blue;
+  --active-background: rgb(220,224,235);
+  color: rgb(50,64,68);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    color: rgb(220,220,200);
+    --accent-color: #599;
+    --title-color: lightblue;
+    --border-color: #799;
+    --background-color: rgb(55,64,75);
+    --active-color: cyan;
+    --active-background: rgb(75,84,95)
+  }
+  body{ background: rgb(50,54,68); }
+}
+multipage-list::part(box-container){
+  background: var(--secondary-background-color); 
+  border-radius: 6px; 
+  box-shadow: 0 0 0 2px var(--border-color); 
+  padding-block: 3px;
+  margin-inline: 5px;
+}
+multipage-list::part(track-container){
+  --track-selected-color: var(--accent-color); 
+}
+
+multipage-item{
+  display: flex;
+  padding: 3px 6px;
+  align-items: center;
+} 
+
+multipage-item > .row-content{
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--background-color);
+  width: 100%;
+  padding: 0.4em
+}
+multipage-item:focus > .row-content,
+multipage-item:hover > .row-content{
+  border-color: var(--active-color);
+  background-color: var(--active-background);
+}

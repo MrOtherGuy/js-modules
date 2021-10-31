@@ -1,0 +1,32 @@
+.flex{ display: flex }
+.grow{ flex-grow:1 }
+[data-hidden]{ display: none }
+
+.multipage-box-container{
+  overflow: hidden;
+  border: 1px solid;
+}
+
+#multipage-track-container{
+  display: flex;
+  justify-content: space-evenly;
+  margin-top: 0.5em
+}
+@keyframes animateUp{
+  from{ transform: translateX(100%) }
+  to{ transform: translateX(0px) }
+}
+@keyframes animateDown{
+  from{ transform: translateX(-100%) }
+  to{ transform: translateX(0px) }
+}
+#multipage-innerbox.animateUp{
+  animation: 150ms ease-out animateUp;
+}
+#multipage-innerbox.animateDown{
+  animation: 150ms ease-out animateDown;
+}
+#multipage-innerbox.finishing{
+  animation: none;
+  transition: transform 80ms linear
+}
