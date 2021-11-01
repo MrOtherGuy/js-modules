@@ -57,11 +57,13 @@ document.querySelector("multipage-list")
   row.name.textContent = data.id;
   row.info.textContent = data.more;
 })
-// call set the data to be visualized by this element (causes redraw)
+// set the data to be visualized by this element (causes redraw)
 .forData(list)
-// set filter to be used (causes redraw)
+// set filter to be used and redraw
 // i.e. only items with odd "index" are drawn
 .filters.set({"fn": a => (a.index % 2)})
+// sort the underlying data, then redraw
+.sort((a,b)=>(a.index < b.index) ? 1 : -1)
 // called when a row is clicked
 .setRowClickHandler((row) => console.log("clicked name: "+row.name.textContent))
 </script>
