@@ -2,6 +2,9 @@ class Shelf{
   constructor(obj,keys = []){
     this.data = obj;
     for(let key of keys){
+      if(key in this){
+        continue 
+      }
       if(this.data[key]){
         Object.defineProperty(this,key,{
           get: () => {
@@ -17,7 +20,11 @@ class Shelf{
           get: () => {
             let nkey = `_${key}`;
             if(!this[nkey]){
-              this[nkey] = Shelf.flatten(this.data,key);
+              Object.defineProperty(
+                this,
+                nkey,
+                { value : Shelf.flatten(this.data,key) }
+              );
             }
             return this[nkey]
           }
@@ -33,8 +40,9 @@ class Shelf{
     return this._any
   }
   
-  static from(obj){
-    let keys = Shelf.getKeys(obj,2);
+  static from(obj,depth){
+    depth = depth || 2;
+    let keys = Shelf.getKeys(obj,depth);
     return new Shelf(obj,keys)
   }
   
@@ -87,11 +95,21 @@ class Library{
     })
   }
   
-  static loadFiles(files){
+  static resolveUrlOrData(obj){
+    if("file" in obj){
+      return Library.fetchAsJSON(obj.file)
+    }
+    if("data" in obj){
+      return Promise.resolve(obj.data)
+    }
+    return Promise.reject("definition contains no data or file")
+  }
+  
+  static loadData(files){
     return new Promise((res,rej) => {
       Promise.all([
         Library.resolveOnReady(),
-        Promise.all(files.map(Library.fetchAsJSON))
+        Promise.all(files.map(Library.resolveUrlOrData))
       ])
       .then(results => res(results[1]))
       .catch(rej)
@@ -111,6 +129,44 @@ class Library{
           res()
         }
       }
+    })
+  }
+  
+  static from(def){
+    return new Promise((res,rej) => {
+      const names = Object.keys(def);
+      const aLib = new Library();
+      const aData = aLib.data;
+      Library.loadData(Object.values(def))
+      .then(arr => {
+        for(let i = 0; i < arr.length; i++){
+          let desc = def[names[i]];
+          const key = desc.key || Symbol();
+          if(typeof desc.transform === "function"){
+            aData.set(key,desc.transform(arr[i]));
+          }else if(desc.transform === null){
+            aData.set(key,arr[i])
+          }else{
+            aData.set(
+              key,
+              Shelf.from(arr[i], def[names[i]].indexDepth)
+            );
+          }
+          Object.defineProperty(aLib,names[i],{
+            get: () => aData.get(key)
+          });
+          if(desc.mappedGetter){
+            desc.mappedGetter.property = names[i];
+            try{
+              aLib.addMappedGetter(desc.mappedGetter);
+            }catch(e){
+              console.error(e)
+            }
+          }
+        }
+      })
+      .then(()=>res(aLib))
+      .catch(rej)
     })
   }
   
@@ -148,42 +204,6 @@ class Library{
     this.data.set(id,map);
     Object.defineProperty(this,def.name,{value:(some) => map.get(some)})
     return this
-  }
-  
-  populateNamed(obj){
-    return new Promise((res,rej) => {
-
-      let names = Object.keys(obj);
-      let filenames = [];
-      for(let name of names){
-        filenames.push(obj[name].file)
-      }
-      Library.loadFiles(filenames)
-      .then(arr => {
-        for(let i = 0; i < arr.length; i++){
-          let desc = obj[names[i]];
-          const key = desc.key || Symbol();
-          if(typeof desc.transform === "function"){
-            this.data.set(key,desc.transform(arr[i]));
-          }else if(desc.transform === null){
-            this.data.set(key,arr[i])
-          }else{
-            this.data.set(key,Shelf.from(arr[i]));
-          }
-          Object.defineProperty(this,names[i],{get:()=>this.data.get(key)});
-          if(desc.mappedGetter){
-            desc.mappedGetter.property = names[i];
-            try{
-              this.addMappedGetter(desc.mappedGetter);
-            }catch(e){
-              console.error(e)
-            }
-          }
-        }
-      })
-      .then(()=>res(this))
-      .catch(rej)
-    })
   }
 
 }
