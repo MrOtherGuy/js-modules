@@ -470,43 +470,56 @@ class MultipageViewer extends HidableElement{
     return this._cachedVisibleSize
   }
   
+  _onWheelEvent(ev){
+    ev.preventDefault()
+    ev.deltaY > 0 ? this.next() : this.previous();
+  }
+  
+  switchByScrollWheel(){
+    this.addEventListener("wheel",this._onWheelEvent);
+    return this
+  }
+  
+  _onKeyPress(ev){
+    switch (ev.key){
+      case "ArrowLeft":
+        this.previous();
+        break;
+      case "ArrowRight":
+        this.next();
+        break;
+      case "ArrowDown":
+        if(!this.visibleRows){ return }
+        if(document.activeElement === this || document.activeElement === this.children[this.visibleRows-1]){
+          this.children[0].focus()
+        }else{
+          document.activeElement.nextElementSibling.focus()
+        }
+        break;
+      case "ArrowUp":
+        if(!this.visibleRows){ return }
+        if(document.activeElement === this || document.activeElement === this.children[0]){
+          this.children[this.visibleRows-1].focus()
+        }else{
+          document.activeElement.previousElementSibling.focus()
+        }
+        break;
+      case "Enter":
+        if(document.activeElement instanceof MultipageItem){
+          document.activeElement.click()
+        }
+      default:
+        return
+    }
+    ev.preventDefault();
+  }
+  
+  addKeyboardControls(){
+    this.addEventListener("keyup",this._onKeyPress);
+    return this
+  }
+  
   connectedCallback(){
-    this.addEventListener("wheel",(ev) => {
-      ev.deltaY > 0 ? this.next() : this.previous()
-    });
-    this.addEventListener("keyup",(ev)=>{
-      switch (ev.key){
-        case "ArrowLeft":
-          this.previous();
-          break;
-        case "ArrowRight":
-          this.next();
-          break;
-        case "ArrowDown":
-          if(!this.visibleRows){ return }
-          if(document.activeElement === this || document.activeElement === this.children[this.visibleRows-1]){
-            this.children[0].focus()
-          }else{
-            document.activeElement.nextElementSibling.focus()
-          }
-          break;
-        case "ArrowUp":
-          if(!this.visibleRows){ return }
-          if(document.activeElement === this || document.activeElement === this.children[0]){
-            this.children[this.visibleRows-1].focus()
-          }else{
-            document.activeElement.previousElementSibling.focus()
-          }
-          break;
-        case "Enter":
-          if(document.activeElement instanceof MultipageItem){
-            document.activeElement.click()
-          }
-        default:
-          return
-      }
-      ev.preventDefault();
-    });
     let len = Number(this.getAttribute("rows"));
     if(len){ this.size = len; this.loaded = true }
   }
