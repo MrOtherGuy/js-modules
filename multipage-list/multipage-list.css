@@ -6,7 +6,10 @@
   overflow: hidden;
   border: 1px solid;
 }
-
+#multipage-innerbox.grid{
+  display: grid;
+  grid-template-columns: repeat(var(--multipage-grid-columns,2),1fr);
+}
 #multipage-track-container{
   display: flex;
   justify-content: space-evenly;

@@ -514,6 +514,18 @@ class MultipageViewer extends HidableElement{
     ev.preventDefault();
   }
   
+  set columns(int){
+    if(typeof int === "number" && int > 1){
+      let n = Math.ceil(int);
+      this.setAttribute("columns",Math.ceil(int));
+      this.inner.classList.add("grid");
+      this.inner.setAttribute("style",`--multipage-grid-columns:${n};`)
+    }else{
+      this.removeAttribute("columns");
+      this.inner.classList.remove("grid");
+    }
+  }
+  
   addKeyboardControls(){
     this.addEventListener("keyup",this._onKeyPress);
     return this
@@ -522,6 +534,11 @@ class MultipageViewer extends HidableElement{
   connectedCallback(){
     let len = Number(this.getAttribute("rows"));
     if(len){ this.size = len; this.loaded = true }
+    let columns = Number(this.getAttribute("columns"))
+    if(columns){
+      this.inner.classList.add("grid");
+      this.inner.setAttribute("style","--multipage-gird-columns:"+columns)
+    }
   }
 }
 
