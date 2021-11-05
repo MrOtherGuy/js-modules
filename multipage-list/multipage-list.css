@@ -1,6 +1,13 @@
 .flex{ display: flex }
 .grow{ flex-grow:1 }
-[data-hidden]{ display: none }
+
+:host{ display: block }
+:host([data-hidden]){ display: none }
+
+::slotted([data-hidden]){ visibility: hidden }
+:host([data-row-collapse]) ::slotted([data-hidden]){
+  display: none !important;
+}
 
 .multipage-box-container{
   overflow: hidden;
