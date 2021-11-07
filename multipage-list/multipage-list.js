@@ -13,7 +13,7 @@ class HidableElement extends HTMLElement{
     this.setAttribute("data-hidden","");
   }
   show(){
-    this.removeAttribute("data-hidden")
+    this.removeAttribute("data-hidden");
   }
   loaded = false;
   
@@ -275,7 +275,7 @@ class MultipageViewer extends HidableElement{
     return this
   }
   
-  useSwipeAnimation(){
+  switchBySwiping(){
     if(MultipageViewer.TouchCapable){
       this.animator = new MultipageViewer.Animator(this).forElement(this.inner);
     }
@@ -283,7 +283,6 @@ class MultipageViewer extends HidableElement{
   }
   animator = null;
   data = null;
-  size = 10;
   page = 1;
   filtered = null;
   
@@ -343,18 +342,6 @@ class MultipageViewer extends HidableElement{
     this.data = Array.isArray(array) ? array : [];
     return this.setView(1)
   }
-  setRows(n){
-    n |= 0;
-    if(n >= 0){
-      this.size = n|0;
-    }
-    this.setAttribute("rows",(n|0));
-    
-    while(this.children.length > 0){
-      this.children[0].remove()
-    }
-    return this.setView(1)
-  }
   
   next(){
     return this.setView(this.page + 1)
@@ -377,7 +364,6 @@ class MultipageViewer extends HidableElement{
       return true
     }
 
-    
     function execFilters(){
       host._cachedVisibleSize = null;
       host.filtered = store.size ? host.data.filter(filterFn) : null
@@ -430,8 +416,8 @@ class MultipageViewer extends HidableElement{
   }
   
   update(){
-    let end = Math.min(this.page * this.size,this.dataView.length);
-    let start = Math.max(0,end - this.size);
+    let end = Math.min(this.page * this._size,this.dataView.length);
+    let start = Math.max(0,end - this._size);
     this.pageTracker.setViewLimits(1,this.pageCount);
     this.pageTracker.setSelected(this.page);
     let max_items = this.dataView.length;
@@ -452,30 +438,99 @@ class MultipageViewer extends HidableElement{
     return this
   }
   
-  set rows(n){
-    if(typeof n === "number" && n >= 0){
-      this.setAttribute("rows",(n|0));
-      this.setRows(n|0) 
+  _size = 10;
+  set size(n){
+    if(typeof n !== "number"){ return }
+    n |= 0;
+    if(n >= 0 && n != this._size){
+      this._cachedVisibleSize = null;
+      this._size = n;
+      this.setAttribute("size",(n));
+      
+      while(this.children.length > n){
+        this.lastElementChild.remove();
+      }
+      this.setView(1);
+      return
     }
   }
+  get size(){
+    return this._size
+  }
+  
+  
+  setSize(some){
+    if(!some){ return this }
+    if(typeof some === "number"){
+      this.size = some;
+      return this
+    }
+    if(some.rows && some.columns){
+      this.columns = some.columns;
+      this.size = some.rows * some.columns;
+    }
+    return this
+  }
+  
+  set rows(n){
+    let newSize = this._columns * n;
+    this.size = newSize;
+    return
+  }
+  
   get rows(){
-    return this.size
+    return Math.ceil(this.size / this._columns)
+  }
+  
+  _columns = 1;
+  get columns(){
+    return this._columns
+  }
+  
+  set columns(n){
+    if(typeof n !== "number" || n < 1){ return }
+    n |= 0;
+    this._columns = n;
+    if(n > 1){
+      this.setAttribute("columns",n);
+      this.inner.classList.add("grid");
+      this.inner.setAttribute("style",`--multipage-grid-columns:${n};`)
+    }else{
+      this.removeAttribute("columns");
+      this.inner.classList.remove("grid");
+    }
+    return
   }
   
   _cachedVisibleSize = null;
-  get visibleRows(){
+  get visibleItems(){
     if(this._cachedVisibleSize === null){
       this._cachedVisibleSize = this.querySelectorAll("multipage-item:not([data-hidden])").length
     }
     return this._cachedVisibleSize
   }
   
+  [Symbol.iterator](){
+    let idx = 0;
+    return {
+      next: () => {
+        const comp = this.visibleItems;
+        return idx < comp ? {
+          value: this.children[idx],
+          done: (idx++ >= comp)
+        } : {
+          done: true
+        }
+      }
+    }
+  }
+  
   _onWheelEvent(ev){
-    ev.preventDefault()
+    ev.preventDefault();
     ev.deltaY > 0 ? this.next() : this.previous();
   }
   
-  switchByScrollWheel(){
+  switchByScrolling(){
     this.addEventListener("wheel",this._onWheelEvent);
     return this
   }
@@ -489,17 +544,17 @@ class MultipageViewer extends HidableElement{
         this.next();
         break;
       case "ArrowDown":
-        if(!this.visibleRows){ return }
-        if(document.activeElement === this || document.activeElement === this.children[this.visibleRows-1]){
+        if(!this.visibleItems){ return }
+        if(document.activeElement === this || document.activeElement === this.children[this.visibleItems-1]){
           this.children[0].focus()
         }else{
           document.activeElement.nextElementSibling.focus()
         }
         break;
       case "ArrowUp":
-        if(!this.visibleRows){ return }
+        if(!this.visibleItems){ return }
         if(document.activeElement === this || document.activeElement === this.children[0]){
-          this.children[this.visibleRows-1].focus()
+          this.children[this.visibleItems-1].focus()
         }else{
           document.activeElement.previousElementSibling.focus()
         }
@@ -514,30 +569,18 @@ class MultipageViewer extends HidableElement{
     ev.preventDefault();
   }
   
-  set columns(int){
-    if(typeof int === "number" && int > 1){
-      let n = Math.ceil(int);
-      this.setAttribute("columns",Math.ceil(int));
-      this.inner.classList.add("grid");
-      this.inner.setAttribute("style",`--multipage-grid-columns:${n};`)
-    }else{
-      this.removeAttribute("columns");
-      this.inner.classList.remove("grid");
-    }
-  }
-  
   addKeyboardControls(){
     this.addEventListener("keyup",this._onKeyPress);
     return this
   }
   
   connectedCallback(){
-    let len = Number(this.getAttribute("rows"));
+    let len = Number(this.getAttribute("size"));
     if(len){ this.size = len; this.loaded = true }
     let columns = Number(this.getAttribute("columns"))
     if(columns){
       this.inner.classList.add("grid");
-      this.inner.setAttribute("style","--multipage-gird-columns:"+columns)
+      this.inner.setAttribute("style","--multipage-grid-columns:"+columns)
     }
   }
 }

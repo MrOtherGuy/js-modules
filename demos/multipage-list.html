@@ -32,23 +32,34 @@
 </template>
 <template id="multipagerow-template">
   <div class="row-content" slot="row-content" >
-    <p data-part="name"></p>
+    <h4 data-part="name"></h4>
     <div data-part="info"></div>
   </div>
 </template>
-<multipage-list rows="5" tabindex="0"></multipage-list>
+<h2>multipage-list as list</h2>
+<multipage-list size="5" tabindex="0"></multipage-list>
+<h2>multipage-list as grid</h2>
+<multipage-list size="9" columns="3" tabindex="0"></multipage-list>
 <script>
-// construct some data
-let list = [];
-for(let i = 0; i < 67; i++){
-  list.push({
-    id:    "Dude-"+i,
-    more:  "test item",
-    index: i
-  })
+let listText = "list item";
+let gridText = "grid item";
+// function to construct some data
+function createData(isGrid){
+  let list = [];
+  for(let i = 0; i < 67; i++){
+    list.push({
+      id:    "Dude-"+i,
+      more:  isGrid ? gridText : listText,
+      index: i
+    })
+  }
+  return list
 }
-// get reference to the list item
-document.querySelector("multipage-list")
+// get reference to the list elements
+let elements = document.querySelectorAll("multipage-list");
+
+//first <multipage-list>
+elements[0]
 // the formatter function is called with corresponding
 // data item when the view is updated
 .setRowFormatter((row,data) => {
@@ -58,14 +69,33 @@ document.querySelector("multipage-list")
   row.info.textContent = data.more;
 })
 // set the data to be visualized by this element (causes redraw)
-.forData(list)
+.forData(createData(false/* isGrid */))
 // set filter to be used and redraw
 // i.e. only items with odd "index" are drawn
 .filters.set({"fn": a => (a.index % 2)})
 // sort the underlying data, then redraw
 .sort((a,b)=>(a.index < b.index) ? 1 : -1)
 // called when a row is clicked
-.setRowClickHandler((row) => console.log("clicked name: "+row.name.textContent))
+.setRowClickHandler((row) => console.log("clicked name:"+row.name.textContent));
+
+//second <multipage-list>
+elements[1]
+// the formatter function is called with corresponding
+// data item when the view is updated
+.setRowFormatter((row,data) => {
+// "name" and "info" are tagged parts set in multipagerow-template
+// as "data-part"
+  row.name.textContent = data.id;
+  row.info.textContent = data.more;
+})
+// set the data to be visualized by this element (causes redraw)
+.forData(createData(true/* isGrid */))
+// we don't set click handlers nor any filtering for this one
+// but add scrollwheel handler to switch pages
+.switchBySwiping()
+// and also swiping handler for touch input
+.switchByScrolling();
+
 </script>
 </body>
 </html>
