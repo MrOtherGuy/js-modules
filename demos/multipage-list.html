@@ -36,10 +36,20 @@
     <div data-part="info"></div>
   </div>
 </template>
+<template id="multipage-imagerow-template">
+  <div class="row-content" slot="row-content" >
+    <div data-part="text"></div>
+    <div><img src="" data-part="image"></div>
+  </div>
+</template>
 <h2>multipage-list as list</h2>
 <multipage-list size="5" tabindex="0"></multipage-list>
+<hr>
 <h2>multipage-list as grid</h2>
 <multipage-list size="9" columns="3" tabindex="0"></multipage-list>
+<hr>
+<h2>lazy loaded multipage-list</h2>
+<multipage-list size="4" columns="2" tabindex="0" data-template="multipage-imagerow-template" type="lazy" src="multipage-lazy-loaded-list.json"></multipage-list>
 <script>
 let listText = "list item";
 let gridText = "grid item";
@@ -95,6 +105,34 @@ elements[1]
 .switchBySwiping()
 // and also swiping handler for touch input
 .switchByScrolling();
+
+// lazy-loaded <multipage-list>
+elements[2]
+
+// Lazy-loaded lists have the loaded data in content property of the argument
+// The content property is an object-url for image-responses
+// parsed json for json files
+//  or text for plain text.
+.setRowFormatter((row,data) => {
+  switch(data.type){
+    case "blob":
+      row.image.src = data.content;
+      row.text.textContent = "";
+      break;
+    case "json":
+      row.image.src = "";
+      row.text.textContent = data.content.somecontent;
+      break;
+    case "text":
+      row.image.src = "";
+      row.text.textContent = data.content
+  }
+})
+// scrollwheel handler to switch pages
+.switchBySwiping()
+// and also swiping handler for touch input
+.switchByScrolling()
+// This element doesn't call forData, instead the description for data-items to be loaded is in src attribute.
 
 </script>
 </body>

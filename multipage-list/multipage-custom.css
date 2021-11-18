@@ -54,3 +54,7 @@ multipage-item:hover > .row-content{
   border-color: var(--active-color);
   background-color: var(--active-background);
 }
+
+multipage-item.loading > .row-content > * { visibility: hidden }
+
+multipage-list{ max-width: 80vw }
