@@ -154,6 +154,10 @@ class MultipageViewer extends HidableElement{
     .appendChild(cloned);
   }
   
+  static produceLoadedEvent(instance, b){
+    instance.dispatchEvent(new CustomEvent("dataload", {"detail":{"success": b},"bubbles":false, "cancelable":false}));
+  }
+  
   static TouchCapable = ("ontouchstart" in window) && navigator.maxTouchPoints > 0;
     
   static Filter = function(fun){
@@ -169,6 +173,15 @@ class MultipageViewer extends HidableElement{
     slot.setAttribute("name","row-content");
     return frag
   })();
+  
+  static Load_Interrupted = Symbol("load interrupted");
+  
+  static dataLoadError(e){
+    if(e.reason === MultipageViewer.Load_Interrupted){
+      return
+    }
+    console.warn("Data load interrupted: " + e)
+  }
   
   static Animator = function(context){
     let element = null;
@@ -409,10 +422,150 @@ class MultipageViewer extends HidableElement{
     return this.setView(1)
   }
   
-  
   setView(page){
     this.page = Math.max(1,Math.min(this.pageCount,page));
     return this.update();
+  }
+  
+  static resolveContentType(response){
+    const type = response.headers.get("Content-Type");
+    if(!response.ok){
+      throw "response wasn't ok"
+    }
+    if(type.includes("application/json")){
+      return new MultipageViewer.Result(response,MultipageViewer.Result.JSON)
+    }
+    if(type.includes("image/")){
+      return new MultipageViewer.Result(response,MultipageViewer.Result.BLOB)
+    }
+    return new MultipageViewer.Result(response,MultipageViewer.Result.TEXT)
+  } 
+  
+  static Result = class{
+    constructor(some,symbol){
+      this.raw = some;
+      this._type = symbol
+    }
+    resolved = false;
+    static BLOB = Symbol("blob");
+    static JSON = Symbol("json");
+    static TEXT = Symbol("text");
+    
+    _content = null;
+    
+    async resolve(){
+      if(!this.resolved){
+        this.resolved = true;
+        switch(this._type){
+          case MultipageViewer.Result.JSON:
+            let json = await this.raw.json();
+            this._content = json;
+            break;
+          case MultipageViewer.Result.BLOB:
+            let blob = await this.raw.blob();
+            this._content = URL.createObjectURL(blob);
+            break;
+          case MultipageViewer.Result.TEXT:
+            let text = await this.raw.text();
+            this._content = text;
+          default:
+            this._content = null;
+            break;
+        }
+      }
+      return this
+    }
+    
+    get type(){ return this._type.description }
+    
+    get content(){
+      if(!this._content){
+        this.resolve()
+      }
+      return this._content
+    }
+  }
+  
+  lazyLoadedItems = null;
+  
+  // dataLoader is somewhat complicated because it has to deal with the fact that lazy // loaded items might get requested multiple times and we want to prevent that.
+  // That being said, there's probably plenty of room for simplification here.
+  _dataLoader = null;
+  get dataLoader(){
+    if(!this._dataLoader){
+      this._dataLoader = new (function(){
+        
+        // Used to store currently loading object descriptors
+        const loadingItems = new Map();
+
+        // An object that wraps a promise that can be resolved or rejected on demand
+        function Loadable(){
+          this.promise = new Promise((res,rej)=>{
+            this.resolve = res;
+            this.reject = rej;
+          });
+
+          // Stores the fetch() promise and reference to the Loadable that triggers it
+          this.dataload = { that: this, data: null };
+          //
+          this.load = (ob) => {
+            const dl = this.dataload;
+            if(!dl.data){
+              dl.data = fetch(ob.url);
+              dl.data
+              .then( MultipageViewer.resolveContentType )
+              .then( result => result.resolve() )
+              .then( dl.that.resolve, dl.that.reject )
+            }
+            return this
+          }
+        }
+        
+        // Returns a Loadable that is stored in loadingItems map
+        function createLoadableWithCallback(obj,onsuccess,onerror){
+          const loadable = new Loadable();
+          loadingItems.set(obj,loadable);
+
+          loadable.promise.then(
+            some => { loadingItems.delete(obj); onsuccess(some) },
+            err => {
+              onerror(err);
+              if(err.reason !== MultipageViewer.Load_Interrupted){
+                loadingItems.delete(obj)
+              }
+            }
+          )
+          return loadable
+        }
+        
+        this.load = (obj) => {
+          
+          return new Promise((resolveLoad,rejectLoad) => {
+            
+            if(loadingItems.has(obj)){  
+              let old_loadable = loadingItems.get(obj);
+              old_loadable.reject({ "reason":MultipageViewer.Load_Interrupted });
+              
+              let newLoadable = createLoadableWithCallback(obj,resolveLoad,rejectLoad);
+              
+              // Copy dataload from the old loadable, then delete the old
+              newLoadable.dataload = old_loadable.dataload;
+              newLoadable.dataload.that = newLoadable;
+              delete old_loadable.dataload;
+              
+            }else{
+              // Just initiate a new load
+              createLoadableWithCallback(obj,resolveLoad,rejectLoad)
+              .load(obj)
+            }
+
+          })
+        }
+        
+        return this
+      })()
+    }
+    return this._dataLoader
   }
   
   update(){
@@ -421,6 +574,8 @@ class MultipageViewer extends HidableElement{
     this.pageTracker.setViewLimits(1,this.pageCount);
     this.pageTracker.setSelected(this.page);
     let max_items = this.dataView.length;
+    let maybeHasMoreItems = true;
+    const IS_LAZY = this.lazy;
     for(let i = 0; i < this.size; i++){
       let row = this.children[i];
       if(i < max_items){
@@ -430,10 +585,62 @@ class MultipageViewer extends HidableElement{
         }else{
           row.show()
         }
-        this.rowFormatter(row,this.dataView[start+i])
-      }else{
+        let rowData = this.dataView[start+i];
+        
+        // If list items are lazy loaded
+        if(IS_LAZY){
+          
+          // If the requested item isn't already loaded
+          if(!this.lazyLoadedItems.has(rowData)){
+            // the current "real" target is stored to row, because it might happen that another lazy loaded content item resolves first and and we don't want that to be drawn
+            row.lazyLoadTarget = rowData;
+            row.classList.add("loading");
+            // Load contents, then store the result to map and draw the item
+            this.dataLoader.load(rowData)
+            .then(
+              result => {
+                this.lazyLoadedItems.set(rowData,result);
+                // Only draw the item if it really is the last requested item
+                if(row.lazyLoadTarget === rowData){
+                  this.rowFormatter(row,result);
+                  row.lazyLoadTarget = null;
+                  row.classList.remove("loading");
+                }
+              },
+              MultipageViewer.dataLoadError
+            )
+          }else{ // The requested item has already been loaded so just use that 
+            let item = this.lazyLoadedItems.get(rowData);
+            if(item){
+              this.rowFormatter(row,item)
+            }else{ // Not sure how this could happen
+              console.error("Preload-map got a key with no data")
+            }
+            row.classList.remove("loading");
+          }
+        }else{ // If not lazy, be synchronous
+          this.rowFormatter(row,rowData);
+        }
+      }else{ // Hide the row if filtered list has no content for it
+        maybeHasMoreItems = false;
         row && row.hide()
       }
+    }
+    // Pre-load next page contents and store them to lazyLoadedItems map.
+    if(this.preload && maybeHasMoreItems){
+      let next = this.size + start;
+      let count = Math.min(this.size,this.dataView.length - next);
+      let slice = this.dataView.slice(next,next+count);
+      slice.forEach(item => {
+        if(!this.lazyLoadedItems.has(item)){
+          this.dataLoader.load(item,true)
+          .then(
+            result => this.lazyLoadedItems.set(item,result),
+            MultipageViewer.dataLoadError
+          )
+        }
+        return
+      })
     }
     return this
   }
@@ -575,13 +782,43 @@ class MultipageViewer extends HidableElement{
   }
   
   connectedCallback(){
-    let len = Number(this.getAttribute("size"));
-    if(len){ this.size = len; this.loaded = true }
+    
+    // Handle columns attribute
     let columns = Number(this.getAttribute("columns"))
     if(columns){
       this.inner.classList.add("grid");
       this.inner.setAttribute("style","--multipage-grid-columns:"+columns)
     }
+    
+    // Set base size
+    let len = Number(this.getAttribute("size"));
+    if(len){
+      this.size = len;
+      this.loaded = true;
+    }
+
+    // Handle src attribute
+    let src = this.getAttribute("src");
+    if(src && src.endsWith(".json")){
+      fetch(src)
+      .then(r => r.json())
+      .then(this.forData.bind(this))
+      .then(()=>MultipageViewer.produceLoadedEvent(this,true))
+      .catch(e=>{
+        console.error(e);
+        MultipageViewer.produceLoadedEvent(this,false)
+      })
+    }
+    // Handle type = lazy, this changes the item loading behavior
+    const isLazy = this.getAttribute("type") === "lazy";
+    Object.defineProperty(this,"lazy",{value: isLazy});
+    
+    if(isLazy){
+      this.lazyLoadedItems = new Map();
+    }
+    Object.defineProperty(this,"preload",{
+      value: isLazy && this.getAttribute("preload") === "next"
+    });
   }
 }
 
@@ -596,7 +833,9 @@ class MultipageItem extends HidableElement{
     .appendChild(cloned);
   }
   
-  setContent(item){ 
+  lazyLoadTarget = null;
+  
+  setContent(item){
     this.host.rowFormatter(this,item);
   }
     
