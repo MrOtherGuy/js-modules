@@ -468,6 +468,7 @@ class MultipageViewer extends HidableElement{
           case MultipageViewer.Result.TEXT:
             let text = await this.raw.text();
             this._content = text;
+            break;
           default:
             this._content = null;
             break;
@@ -854,7 +855,7 @@ class MultipageItem extends HidableElement{
   connectedCallback(){
     this.setAttribute("slot","innerbox");
     this.setAttribute("tabindex","-1");
-    let template = document.getElementById('multipagerow-template');
+    let template = document.getElementById(this.host.getAttribute("data-template") || "multipagerow-template");
     this.appendChild(template.content.cloneNode(true));
     for(let e of Array.from(this.querySelectorAll("[data-part]"))){
       let prop = e.getAttribute("data-part");
