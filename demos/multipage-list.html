@@ -49,7 +49,7 @@
 <multipage-list size="9" columns="3" tabindex="0"></multipage-list>
 <hr>
 <h2>lazy loaded multipage-list</h2>
-<multipage-list size="4" columns="2" tabindex="0" data-template="multipage-imagerow-template" type="lazy" src="multipage-lazy-loaded-list.json"></multipage-list>
+<multipage-lazy-list size="4" columns="2" tabindex="0" data-template="multipage-imagerow-template" src="multipage-lazy-loaded-list.json"></multipage-lazy-list>
 <script>
 let listText = "list item";
 let gridText = "grid item";
@@ -102,13 +102,12 @@ elements[1]
 .forData(createData(true/* isGrid */))
 // we don't set click handlers nor any filtering for this one
 // but add scrollwheel handler to switch pages
-.switchBySwiping()
+.switchByScrolling()
 // and also swiping handler for touch input
-.switchByScrolling();
+.switchBySwiping();
 
-// lazy-loaded <multipage-list>
-// lazy-loaded multipage-lists must be marked with type="lazy" attribute
-elements[2]
+// lazy-loaded <multipage-lazy-list>
+document.querySelector("multipage-lazy-list")
 
 // Lazy-loaded lists have the loaded data in content property of the argument
 // The content property is an object-url for image-responses
@@ -129,11 +128,9 @@ elements[2]
       row.text.textContent = data.content
   }
 })
-// scrollwheel handler to switch pages
-.switchBySwiping()
-// and also swiping handler for touch input
-.switchByScrolling()
-// This element doesn't call forData, instead the description for data-items to be loaded is in src attribute.
+// and add swiping handler for touch input
+.switchBySwiping();
+// on this example we don't call forData(), instead the description for data-items to be loaded is in src attribute.
 
 </script>
 </body>
