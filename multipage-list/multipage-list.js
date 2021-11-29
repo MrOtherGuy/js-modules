@@ -153,6 +153,7 @@ class MultipageViewer extends HidableElement{
     let cloned = templateContent.cloneNode(true);
     const shadowRoot = this.attachShadow({mode: 'open'})
     .appendChild(cloned);
+    this.rowsToBeAdded = new Set();
   }
   
   static produceLoadedEvent(instance, b){
@@ -280,6 +281,65 @@ class MultipageViewer extends HidableElement{
     return this
   }
   
+  static FilterManager = function(element){
+    const store = new Map();
+    const host = element;
+    
+    function filterFn(o){
+      for(let f of store.values()){
+        if(f.enabled && !f.run(o)){
+          return false
+        }
+      }
+      return true
+    }
+
+    function execFilters(){
+      host._cachedVisibleSize = null;
+      host.filtered = store.size ? host.data.filter(filterFn) : null
+    }
+    
+    this.clearWithoutRunning = () => {
+      store.clear();
+      execFilters();
+      return this
+    }
+    
+    this.clear = (id) => {
+      if(id){
+        store.delete(id)
+      }else{
+        store.clear()
+      }
+      execFilters();
+      return host.setView(1);
+    }
+    
+    this.add = (def) => {
+      if(def && typeof def.fn === "function"){
+        store.set(def.id || "default",new MultipageViewer.Filter(def.fn));
+      }else{
+        store.delete(def ? def.id : "default")
+      }
+      
+      execFilters();
+      
+      return host.setView(1)
+    }
+    
+    this.set = (def) => {
+      store.clear();
+      
+      if(def && def.fn){
+        return this.add(def)
+      }
+      execFilters();
+      return host.setView(1)
+    }
+    
+    return this
+  }
+  
   switchBySwiping(){
     if(MultipageViewer.TouchCapable){
       this.animator = new MultipageViewer.Animator(this).forElement(this.inner);
@@ -345,9 +405,30 @@ class MultipageViewer extends HidableElement{
   
   get pageCount (){ return Math.max(Math.ceil(this.dataView.length / Math.max(this.size,1)), 1) }
    
-  forData(array){
+  setSource(array){
+    if(this.lazyLoadedItems){
+      this.lazyLoadedItems.forEach((key,value) => {
+        URL.revokeObjectURL(value);
+      });
+    }
     this.data = Array.isArray(array) ? array : [];
+    this.filters.clearWithoutRunning();
     return this.setView(1)
+  }
+  
+  get src(){
+    return this.getAttribute("src")
+  }
+  set src(some){
+    if(typeof some === "string"){
+      this.setAttribute("src",some);
+      MultipageViewer.loadSourceAsJSON(some)
+      .then((data) => this.setSource(data))
+      .catch(console.error)
+    }else if(Array.isArray(some)){
+      this.setSource(some);
+      this.removeAttribute("src")
+    }
   }
   
   next(){
@@ -357,59 +438,14 @@ class MultipageViewer extends HidableElement{
   previous(){
     return this.setView(this.page - 1)
   }
-    
-  filters = new (function(el){
-    const store = new Map();
-    const host = el;
-    
-    function filterFn(o){
-      for(let f of store.values()){
-        if(f.enabled && !f.run(o)){
-          return false
-        }
-      }
-      return true
+  
+  _filterManager = null;
+  get filters(){
+    if(!this._filterManager){
+      this._filterManager = new MultipageViewer.FilterManager(this)
     }
-
-    function execFilters(){
-      host._cachedVisibleSize = null;
-      host.filtered = store.size ? host.data.filter(filterFn) : null
-    }
-    
-    this.clear = function(id){
-      if(id){
-        store.delete(id)
-      }else{
-        store.clear()
-      }
-      execFilters();
-      return host.setView(1);
-    }
-    
-    this.add = function(def){
-      if(def && typeof def.fn === "function"){
-        store.set(def.id || "default",new MultipageViewer.Filter(def.fn));
-      }else{
-        store.delete(def ? def.id : "default")
-      }
-      
-      execFilters();
-      
-      return host.setView(1)
-    }
-    
-    this.set = function(def){
-      store.clear();
-      
-      if(def && def.fn){
-        return this.add(def)
-      }
-      execFilters();
-      return host.setView(1)
-    }
-    
-    return this
-  })(this);
+    return this._filterManager
+  };
   
   sort(fn){
     this.dataView.sort(fn);
@@ -421,29 +457,59 @@ class MultipageViewer extends HidableElement{
     return this.update();
   }
   
+  _itemChildren = null;
+  get itemChildren(){
+    if(!this._itemChildren){
+      this._itemChildren = this.querySelectorAll("multipage-item");
+    }
+    return this._itemChildren
+  }
+  
+  makeVisibleChildAtIndex(index){
+    let row = this.itemChildren[index];
+    if(!row){
+      row = document.createElement("multipage-item");
+      row.init(this);
+      this.rowsToBeAdded.add(row);
+      this._cachedVisibleSize = null;
+    }else{
+      row.show()
+    }
+    return row
+  }
+  
+  static appendPendingChildrenOf(list){
+    if(list.rowsToBeAdded.size > 0){
+      for(let row of list.rowsToBeAdded){
+        list.appendChild(row);
+      }
+      list._itemChildren = null;
+      list.rowsToBeAdded.clear();
+    }
+    return
+  }
+  
+  static getDataBounds(list){
+    let end = Math.min(list.page * list._size,list.dataView.length);
+    let start = Math.max(0,end - list._size);
+    list.pageTracker.setViewLimits(1,list.pageCount);
+    list.pageTracker.setSelected(list.page);
+    return { start: start, max: list.dataView.length }
+  }
+  
   update(){
-    let end = Math.min(this.page * this._size,this.dataView.length);
-    let start = Math.max(0,end - this._size);
-    this.pageTracker.setViewLimits(1,this.pageCount);
-    this.pageTracker.setSelected(this.page);
-    let max_items = this.dataView.length;
-
+    const bounds = MultipageViewer.getDataBounds(this);
     for(let i = 0; i < this.size; i++){
-      let row = this.children[i];
-      if(i < max_items){
-        // Create the row if doesn't exist yet...
-        if(!row){
-          row = this.appendChild(document.createElement("multipage-item"));
-          this._cachedVisibleSize = null;
-        }else{ // ...or make sure it's visible if it was previously hidden
-          row.show()
-        }
-        // set row content
-        this.rowFormatter(row,this.dataView[start+i]);
-      }else{ // Hide the row if filtered list has no content for it
-        row && row.hide()
+      if(i < bounds.max){
+        let row = this.makeVisibleChildAtIndex(i);
+        this.rowFormatter(row,this.dataView[bounds.start+i]);
+      }else{
+        let row = this.itemChildren[i];
+        row && row.hide();
       }
     }
+    
+    MultipageViewer.appendPendingChildrenOf(this);
     return this
   }
   
@@ -455,10 +521,13 @@ class MultipageViewer extends HidableElement{
       this._cachedVisibleSize = null;
       this._size = n;
       this.setAttribute("size",(n));
-      
-      while(this.children.length > n){
-        this.lastElementChild.remove();
+      {
+        const children = Array.from(this.itemChildren);
+        while(children.length > n){
+          children.pop().remove();
+        }
       }
+      this._itemChildren = null;
       this.setView(1);
       return
     }
@@ -525,7 +594,7 @@ class MultipageViewer extends HidableElement{
       next: () => {
         const comp = this.visibleItems;
         return idx < comp ? {
-          value: this.children[idx],
+          value: this.itemChildren[idx],
           done: (idx++ >= comp)
         } : {
           done: true
@@ -554,16 +623,16 @@ class MultipageViewer extends HidableElement{
         break;
       case "ArrowDown":
         if(!this.visibleItems){ return }
-        if(document.activeElement === this || document.activeElement === this.children[this.visibleItems-1]){
-          this.children[0].focus()
+        if(document.activeElement === this || document.activeElement === this.itemChildren[this.visibleItems-1]){
+          this.itemChildren[0].focus()
         }else{
           document.activeElement.nextElementSibling.focus()
         }
         break;
       case "ArrowUp":
         if(!this.visibleItems){ return }
-        if(document.activeElement === this || document.activeElement === this.children[0]){
-          this.children[this.visibleItems-1].focus()
+        if(document.activeElement === this || document.activeElement === this.itemChildren[0]){
+          this.itemChildren[this.visibleItems-1].focus()
         }else{
           document.activeElement.previousElementSibling.focus()
         }
@@ -581,6 +650,15 @@ class MultipageViewer extends HidableElement{
   addKeyboardControls(){
     this.addEventListener("keyup",this._onKeyPress);
     return this
+  }
+  
+  static async loadSourceAsJSON(src){
+    let response = await fetch(src);
+    if(response.headers.get("Content-Type").includes("application/json")){
+      let data = await response.json();
+      return data
+    }
+    return null
   }
   
   connectedCallback(){
@@ -601,12 +679,11 @@ class MultipageViewer extends HidableElement{
 
     // Handle src attribute
     let src = this.getAttribute("src");
-    if(src && src.endsWith(".json")){
-      fetch(src)
-      .then(r => r.json())
-      .then(this.forData.bind(this))
-      .then(()=>MultipageViewer.produceLoadedEvent(this,true))
-      .catch(e=>{
+    if(src){
+      MultipageViewer.loadSourceAsJSON(src)
+      .then(json => this.setSource(json))
+      .then(() => MultipageViewer.produceLoadedEvent(this,true))
+      .catch(e => {
         console.error(e);
         MultipageViewer.produceLoadedEvent(this,false)
       })
@@ -771,23 +848,16 @@ class MultipageLazyViewer extends MultipageViewer{
   }
   
   update(){
-    let end = Math.min(this.page * this._size,this.dataView.length);
-    let start = Math.max(0,end - this._size);
-    this.pageTracker.setViewLimits(1,this.pageCount);
-    this.pageTracker.setSelected(this.page);
-    let max_items = this.dataView.length;
-    let maybeHasMoreItems = true;
+    
+    const bounds = MultipageViewer.getDataBounds(this);
+    let preloadStart = this.preload ? bounds.start + this.size : 0;
 
     for(let i = 0; i < this.size; i++){
-      let row = this.children[i];
-      if(i < max_items){
-        if(!row){
-          row = this.appendChild(document.createElement("multipage-item"));
-          this._cachedVisibleSize = null;
-        }else{
-          row.show()
-        }
-        let rowData = this.dataView[start+i];
+
+      if(i < bounds.max){
+
+        const row = this.makeVisibleChildAtIndex(i);
+        let rowData = this.dataView[bounds.start+i];
         
         // If the requested item isn't already loaded
         if(!this.lazyLoadedItems.has(rowData)){
@@ -818,25 +888,28 @@ class MultipageLazyViewer extends MultipageViewer{
           row.classList.remove("loading");
         }
       }else{ // Hide the row if filtered list has no content for it
-        maybeHasMoreItems = false;
+        preloadStart = 0;
+        let row = this.itemChildren[i];
         row && row.hide()
       }
+
     }
+    MultipageViewer.appendPendingChildrenOf(this);
     // Pre-load next page contents and store them to lazyLoadedItems map.
-    if(this.preload && maybeHasMoreItems){
-      let next = this.size + start;
-      let count = Math.min(this.size,this.dataView.length - next);
-      let slice = this.dataView.slice(next,next+count);
-      slice.forEach(item => {
+    if(this.preload && preloadStart > 0){
+      const end = Math.min(this.size, bounds.max - preloadStart) + preloadStart;
+     
+      for(let i = preloadStart; i < end; i++){
+        const item = this.dataView[i];
         if(!this.lazyLoadedItems.has(item)){
-          this.dataLoader.load(item,true)
+          this.dataLoader.load(item)
           .then(
             result => this.lazyLoadedItems.set(item,result),
             MultipageLazyViewer.dataLoadError
           )
         }
-        return
-      })
+      }
+      
     }
     return this
   }
@@ -859,6 +932,24 @@ class MultipageItem extends HidableElement{
     let cloned = templateContent.cloneNode(true);
     const shadowRoot = this.attachShadow({mode: 'closed'})
     .appendChild(cloned);
+    
+  }
+  
+  init(element){
+    if(this.initialized){ return }
+    this.setAttribute("tabindex","-1");
+    if(element){ this._host = element }
+    let template = document.getElementById(this.host.getAttribute("data-template") || "multipagerow-template");
+    this.appendChild(template.content.cloneNode(true));
+    
+    for(let e of Array.from(this.querySelectorAll("[data-part]"))){
+      let prop = e.getAttribute("data-part");
+      if(prop && !this[prop]){
+        Object.defineProperty(this,prop,{value:e})
+      }
+      
+    }
+    this.initialized = true
   }
   
   lazyLoadTarget = null;
@@ -881,16 +972,10 @@ class MultipageItem extends HidableElement{
   
   connectedCallback(){
     this.setAttribute("slot","innerbox");
-    this.setAttribute("tabindex","-1");
-    let template = document.getElementById(this.host.getAttribute("data-template") || "multipagerow-template");
-    this.appendChild(template.content.cloneNode(true));
-    for(let e of Array.from(this.querySelectorAll("[data-part]"))){
-      let prop = e.getAttribute("data-part");
-      if(prop && !this[prop]){
-        Object.defineProperty(this,prop,{value:e})
-      }
-      
+    if(!this.initialized){
+      this.init()
     }
+    
     this.addEventListener("click",this.onClicked);
   }
   

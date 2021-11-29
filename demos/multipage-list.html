@@ -6,6 +6,22 @@
   <title>Multipage-list</title>
   <script src="../multipage-list/multipage-list.js"></script>
   <link href="../multipage-list/multipage-custom.css" rel="stylesheet" type="text/css">
+  <style type="text/css">
+    #imageOverlay{
+      display: flex;
+      top: 0;
+      left: 0;
+      position: fixed;
+      width: 100vw;
+      height: 100vh;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.5)
+    }
+    #imageOverlay > img{
+      box-shadow: 0 0 16px black
+    }
+  </style>
 </head>
 <body>
 <template id="multipageinner-template">
@@ -51,6 +67,18 @@
 <h2>lazy loaded multipage-list</h2>
 <multipage-lazy-list size="4" columns="2" tabindex="0" data-template="multipage-imagerow-template" src="multipage-lazy-loaded-list.json"></multipage-lazy-list>
 <script>
+
+function popImage(img){
+  if(document.getElementById("imageOverlay")){
+    return
+  }
+  let box = document.createElement("div");
+  box.id = "imageOverlay";
+  let image = box.appendChild(img.cloneNode(img));
+  document.body.appendChild(box);
+  box.addEventListener("click",(ev)=>box.remove(),{once:true})
+}
+
 let listText = "list item";
 let gridText = "grid item";
 // function to construct some data
@@ -79,7 +107,7 @@ elements[0]
   row.info.textContent = data.more;
 })
 // set the data to be visualized by this element (causes redraw)
-.forData(createData(false/* isGrid */))
+.setSource(createData(false/* isGrid */))
 // set filter to be used and redraw
 // i.e. only items with odd "index" are drawn
 .filters.set({"fn": a => (a.index % 2)})
@@ -99,7 +127,7 @@ elements[1]
   row.info.textContent = data.more;
 })
 // set the data to be visualized by this element (causes redraw)
-.forData(createData(true/* isGrid */))
+.setSource(createData(true/* isGrid */))
 // we don't set click handlers nor any filtering for this one
 // but add scrollwheel handler to switch pages
 .switchByScrolling()
@@ -128,6 +156,7 @@ document.querySelector("multipage-lazy-list")
       row.text.textContent = data.content
   }
 })
+.setRowClickHandler(row => {row.image.width && popImage(row.image)})
 // and add swiping handler for touch input
 .switchBySwiping();
 // on this example we don't call forData(), instead the description for data-items to be loaded is in src attribute.
