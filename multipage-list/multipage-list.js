@@ -407,9 +407,10 @@ class MultipageViewer extends HidableElement{
    
   setSource(array){
     if(this.lazyLoadedItems){
-      this.lazyLoadedItems.forEach((key,value) => {
-        URL.revokeObjectURL(value);
-      });
+      for(let value of this.lazyLoadedItems.values()){
+        value.forgetObjectUrl();
+      }
+      this.lazyLoadedItems.clear();
     }
     this.data = Array.isArray(array) ? array : [];
     this.filters.clearWithoutRunning();
@@ -734,6 +735,12 @@ class MultipageLazyViewer extends MultipageViewer{
     static TEXT = Symbol("text");
     
     _content = null;
+    
+    forgetObjectUrl(){
+      if(this._type === MultipageLazyViewer.Result.BLOB){
+        URL.revokeObjectURL(this._content);
+      }
+    }
     
     async resolve(){
       if(!this.resolved){
