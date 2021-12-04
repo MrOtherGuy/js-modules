@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width"/>
+  <meta charset="UTF-8">
+  <title>Treeview demo</title>
+  <style>
+    tree-view::part(tree){
+      padding: 10px;
+      border: 1px solid;
+      font-family: monospace;
+    }
+  </style>
+  <script src="../tree-view/tree-view.js"></script>
+</head>
+<body>
+<template id="tree-template">
+<link as="style" type="text/css" rel="preload prefetch stylesheet" href="../tree-view/tree-view.css">
+</template>
+<div>
+<h2>Treeview demo</h2>
+<tree-view></tree-view>
+</div>
+<footer>
+<p>Hint: try to drag and drop .json files to the view</p>
+</footer> 
+<script>
+function encodeElem(e){
+  let o = e.children.length ? { } : e.textContent;
+  for(let i of e.children){
+    o[i.localName] = encodeElem(i);
+  }
+  return o
+}
+let view = document.getElementsByTagName("tree-view")[0];
+view.addDropHandler();
+view.src = {"html":encodeElem(document.documentElement)}
+</script>
+</body>
+</html>
