@@ -2,8 +2,9 @@ details,
 details > div{
   padding-inline-start: 1em;
   border-inline-start: 1px solid;
-  margin-inline-start: 0.2em
+  margin-inline-start: 0.2em;
 }
+details > div{ white-space: pre }
 details{
   background-image: linear-gradient(currentcolor,currentcolor);
   background-position-y: 0.65em;

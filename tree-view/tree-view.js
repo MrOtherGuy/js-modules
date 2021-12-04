@@ -28,7 +28,7 @@ class TreeView extends HTMLElement{
     let link = document.createElement("link");
     link.setAttribute("type","text/css");
     link.setAttribute("rel","preload prefetch stylesheet");
-    link.setAttribute("href","tree-view.css");
+    link.setAttribute("href","modules/tree-view.css");
     frag.appendChild(link);
 
     return frag
@@ -119,7 +119,7 @@ class TreeView extends HTMLElement{
         summary.classList.add("string");
         ostr = `"${obj}"`
       }else{
-        ostr = obj.toString();
+        ostr = obj === undefined ? "undefined" : obj.toString();
       }
 
       details.appendChild(document.createElement("div")).textContent = ostr;
@@ -166,6 +166,9 @@ class TreeView extends HTMLElement{
   
   static async loadSourceAsJSON(src){
     let response = await fetch(src);
+    if(!response.ok){
+      throw "source file: "+src+ " was not found";
+    }
     if(response.headers.get("Content-Type").includes("application/json")){
       let data = await response.json();
       return data
