@@ -4,7 +4,7 @@ details > div{
   border-inline-start: 1px solid;
   margin-inline-start: 0.2em;
 }
-details > div{ white-space: pre }
+details > div{ white-space: pre-wrap }
 details{
   background-image: linear-gradient(currentcolor,currentcolor);
   background-position-y: var(--tree-connector-position,0.65em);
