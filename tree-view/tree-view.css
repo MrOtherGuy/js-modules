@@ -1,15 +1,15 @@
 details,
 details > div{
-  padding-inline-start: 1em;
+  padding-inline-start: var(--tree-row-indent);
   border-inline-start: 1px solid;
   margin-inline-start: 0.2em;
 }
 details > div{ white-space: pre }
 details{
   background-image: linear-gradient(currentcolor,currentcolor);
-  background-position-y: 0.65em;
+  background-position-y: var(--tree-connector-position,0.65em);
   background-repeat: no-repeat;
-  background-size: 1.1em 1px
+  background-size: 1.1em 1px;
 }
 
 details:focus{
@@ -50,8 +50,9 @@ details > summary[data-label]::after{
 }
 summary{
   cursor: pointer;
+  padding-block: var(--tree-row-padding,0px)
 }
 summary:hover{
-  background-color: #ded
+  background-color: var(--tree-hover-background,#d3d);
 }
 details[id] > summary{ color: #449 }
