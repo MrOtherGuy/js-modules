@@ -125,7 +125,7 @@ class TreeView extends HTMLElement{
       details.appendChild(document.createElement("div")).textContent = ostr;
       let slice = ostr.slice(0,10);
       if(ostr.length > 13){
-        slice += "..."
+        slice += "...\""
       }else{
         slice += ostr.slice(10,13)
       }
@@ -161,6 +161,14 @@ class TreeView extends HTMLElement{
       let created = TreeView.createRootLayer(some,this.refSet);
       tree.appendChild(created);
       this.refSet.clear();
+      const open = this.getAttribute("open");
+      const openAll = open === "all";
+      if(openAll || open === "layers"){
+        for(let detail of Array.from(tree.querySelectorAll("details"))){
+          
+          detail.open = openAll || detail.children[1].localName === "details"
+        }
+      }
     }
   }
   
@@ -246,7 +254,7 @@ class TreeView extends HTMLElement{
         TreeView.produceLoadedEvent(this,false)
       })
     }
-    
+    this.tree.open = this.hasAttribute("open");
   }
 }
 
