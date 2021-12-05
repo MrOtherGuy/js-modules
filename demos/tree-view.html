@@ -5,13 +5,20 @@
   <meta charset="UTF-8">
   <title>Treeview demo</title>
   <style>
-    tree-view::part(tree){
-      padding: 10px;
-      border: 1px solid;
-      font-family: monospace;
-    }
-  </style>
-  <script src="../tree-view/tree-view.js"></script>
+tree-view::part(tree){
+  padding: 10px;
+  border: 1px solid;
+  font-family: monospace;
+  font-size: 1.15em;
+}
+tree-view{
+  --tree-row-padding: 4px;
+  --tree-row-indent: 1em;
+  --tree-hover-background: #579;
+  --tree-connector-position: 13px;
+}
+</style>
+<script src="../tree-view/tree-view.js"></script>
 </head>
 <body>
 <template id="tree-template">
@@ -19,16 +26,24 @@
 </template>
 <div>
 <h2>Treeview demo</h2>
-<tree-view></tree-view>
+<tree-view open></tree-view>
 </div>
 <footer>
 <p>Hint: try to drag and drop .json files to the view</p>
 </footer> 
 <script>
+function getAttrs(e){
+  let s = [];
+  for(let i = 0; i<e.attributes.length; i++){
+    let a = e.attributes[i];
+    s.push(`${a.name}="${a.value}"`)
+  }
+  return s
+}
 function encodeElem(e){
   let o = e.children.length ? { } : e.textContent;
   for(let i of e.children){
-    o[i.localName] = encodeElem(i);
+    o[i.localName+ " "+getAttrs(i).join(" ")] = encodeElem(i);
   }
   return o
 }
