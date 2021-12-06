@@ -38,7 +38,7 @@ class TreeView extends HTMLElement{
     instance.dispatchEvent(new CustomEvent("dataload", {"detail":{"success": b},"bubbles":false, "cancelable":false}));
   }
   static createTargetIdFor(detail){
-    let s = "";
+    let s = "i";
     for(let i = 0; i < 4; i++){
       let i = Math.floor(Math.random() * 256);
       s += i.toString(16)
