@@ -26,13 +26,8 @@ details.root{
   opacity: 0.7;
   box-shadow: inset 0 0 16px currentcolor;
 }
-
 summary.object::after{
   content: " - {...}";
-  opacity: 0.6;
-}
-summary.array::after{
-  content: " - [...]";
   opacity: 0.6;
 }
 summary.circular{
@@ -44,9 +39,16 @@ summary.array.circular::after{
 summary.object.circular::after{
   content: " - &{...}";
 }
-details > summary[data-label]::after{
+summary[data-label]::after{
   content: " - " attr(data-label);
   opacity: 0.6;
+}
+summary.array::after{
+  content: " - ("attr(data-label)")[...]";
+  opacity: 0.6;
+}
+summary.string[data-label]::after{
+  content: " - \""attr(data-label)"\"";
 }
 summary{
   cursor: pointer;

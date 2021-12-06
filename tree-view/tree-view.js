@@ -55,97 +55,128 @@ class TreeView extends HTMLElement{
   static TYPE_OBJECT = Symbol("object");
   static TYPE_ARRAY = Symbol("array");
   static TYPE_STRING = Symbol("string");
-  static TYPEE_FUNCTION = Symbol("function");
+  static TYPE_FUNCTION = Symbol("function");
   static TYPE_NULL = Symbol("null");
-  static TYPE_EMPTY = Symbol("empty");
+  static TYPE_UNDEFINED = Symbol("undefined");
+  static TYPE_NUMBER = Symbol("number");
   
-  static classMap = (
-    (new Map())
-    .set(TreeView.TYPE_OBJECT,"object")
-    .set(TreeView.TYPE_ARRAY,"array")
-    .set(TreeView.TYPE_FUNCTION,"function")
-    .set(TreeView.TYPE_STRING,"string")
-    .set(TreeView.TYPE_NULL,"null")
-    .set(TreeView.TYPE_EMPTY,"")
-  );
+  static isContainer = (type) => (type === TreeView.TYPE_OBJECT || type === TreeView.TYPE_ARRAY);
   
-  static createRootLayer(obj,refSet){
+  static createRootLayer(obj,refSet,type){
     const frag = new DocumentFragment();
-    if(obj && typeof obj === "object"){
+    if(TreeView.isContainer(type)){
       let keys = Object.getOwnPropertyNames(obj);
-      Array.isArray(obj) && keys.pop();
+      if(type === TreeView.TYPE_ARRAY){
+        keys.pop();
+      }
+      
       for(let key of keys){
-        frag.appendChild(TreeView.createLayer(key,obj[key],refSet))
+        const valuetype = TreeView.getTypeOf(obj,key);
+        if(TreeView.isContainer(valuetype)){
+          frag.appendChild(
+            TreeView.createLayer( key,obj[key],refSet,valuetype )
+          )
+        }else{
+          frag.appendChild( TreeView.createLeafNode(key,obj,valuetype) )
+        }
       }
     }
     return frag
   }
   
-  static createLayer(name,obj,refSet){
-    
+  static createLeafNode(name,obj,type){
     const details = TreeView.Node.firstChild.cloneNode(true);
     const summary = details.firstChild;
     summary.textContent = name;
-    const type = typeof obj;
-    
-    if(type === "object"){
-      let keys = Object.getOwnPropertyNames(obj);
-      
-      if(Array.isArray(obj)){
-        keys.pop();
-        summary.classList.add("array");
-      }else{
-        summary.classList.add("object")
-      }
-      if(!refSet.has(obj)){
-        refSet.set(obj,details);
-        for(let key of keys){
-          details.appendChild(TreeView.createLayer(key,obj[key],refSet))
-        }
-      }else{
-        const id = TreeView.createTargetIdFor(refSet.get(obj));
-        
-        details.addEventListener("toggle",(ev)=>{
-          if(details.open){
-            let det = document.getElementById(id);
-            det && det.focus();
-          }
-        })
-        details.firstChild.classList.add("circular");
-      }
-    }else{
-      let ostr;
-      if(type === "string"){
-        summary.classList.add("string");
-        ostr = `"${obj}"`
-      }else{
-        ostr = obj === undefined ? "undefined" : obj.toString();
-      }
-
-      details.appendChild(document.createElement("div")).textContent = ostr;
-      let slice = ostr.slice(0,10);
-      if(ostr.length > 13){
-        slice += "...\""
-      }else{
-        slice += ostr.slice(10,13)
-      }
-      summary.setAttribute("data-label",slice)
+    summary.classList.add(type.description);
+    let div = document.createElement("div");
+    switch(type){
+      case TreeView.TYPE_STRING:
+        div.classList.add("string");
+      case TreeView.TYPE_NUMBER:
+        let text = obj[name];
+        div.textContent = text;
+        if(text.length > 20){
+          summary.setAttribute("data-label",text.slice(0,17)+"...")
+        }else{
+          summary.setAttribute("data-label",text)
+        } 
+        break;
+      case TreeView.TYPE_NULL:
+      case TreeView.TYPE_UNDEFINED:
+        div.textContent = type.description;
+        break
+      default:
+        div.textContent = obj[name].toString();
     }
+    details.appendChild(div);
     return details
   }
   
-  static getTypeOf(some){
-    switch(typeof some){
+  static createLayer(name,obj,refSet,type){
+    const details = TreeView.Node.firstChild.cloneNode(true);
+    details.firstChild.classList.add(type.description);
+    details.firstChild.textContent = name;
+    
+    let keys = Object.getOwnPropertyNames(obj);
+    if(type === TreeView.TYPE_ARRAY){
+      keys.pop();
+      details.firstChild.setAttribute("data-label",obj.length)
+    }
+    
+    if(!refSet.has(obj)){
+      refSet.set(obj,details);
+      for(let key of keys){
+        const valuetype = TreeView.getTypeOf(obj,key);
+        if(TreeView.isContainer(valuetype)){
+          details.appendChild(
+            TreeView.createLayer(key,obj[key],refSet,valuetype)
+          )
+        }else{
+          details.appendChild(
+            TreeView.createLeafNode(key,obj,valuetype)
+          )
+        }
+      }
+    }else{
+      const id = TreeView.createTargetIdFor(refSet.get(obj));
+      
+      details.addEventListener("toggle",(ev)=>{
+        if(details.open){
+          let det = document.getElementById(id);
+          det && det.focus();
+        }
+      })
+      details.firstChild.classList.add("circular");
+    }
+    
+    return details
+  }
+  
+  static getTypeOf(some,key){
+    if(key){
+      some = some[key]
+    }
+    if(some === null){
+      return TreeView.TYPE_NULL
+    }
+    if(some === undefined){
+      return TreeView.TYPE_UNDEFINED
+    }
+    const type = typeof some;
+    
+    switch(type){
       case "object":
+      
         return Array.isArray(some) ? TreeView.TYPE_ARRAY : TreeView.TYPE_OBJECT
       case "string":
         return TreeView.TYPE_STRING
       case "function":
         return TreeView.TYPE_FUNCTION
-      case "null":
-        return TreeView.TYPE_NULL
+      case "number":
+        return TreeView.TYPE_NUMBER
     }
-    return TYPE_EMPTY
+    return TreeView.TYPE_UNDEFINED
   }
   
   setSource(some){
@@ -155,11 +186,15 @@ class TreeView extends HTMLElement{
       tree.children[1].remove();    
     }
     
-    tree.firstChild.className = TreeView.classMap.get(type);
+    tree.firstChild.className = type.description;
+    if(type === TreeView.TYPE_ARRAY){
+      tree.firstChild.setAttribute("data-label",some.length)
+    }else{
+      tree.firstChild.removeAttribute("data-label")
+    }
     
-    if(type === TreeView.TYPE_OBJECT || TreeView.TYPE_ARRAY){
-      let created = TreeView.createRootLayer(some,this.refSet);
-      tree.appendChild(created);
+    if(TreeView.isContainer(type)){
+      tree.appendChild( TreeView.createRootLayer(some,this.refSet,type) );
       this.refSet.clear();
       const open = this.getAttribute("open");
       const openAll = open === "all";
