@@ -4,8 +4,7 @@
   <meta name="viewport" content="width=device-width"/>
   <meta charset="UTF-8">
   <title>Treeview demo</title>
-  <style>
-tree-view::part(tree){
+  <style>tree-view::part(tree){
   padding: 10px;
   border: 1px solid;
   font-family: monospace;
@@ -33,7 +32,7 @@ tree-view{
 </footer> 
 <script>
 function getAttrs(e){
-  let s = [];
+  let s = [e.localName];
   for(let i = 0; i<e.attributes.length; i++){
     let a = e.attributes[i];
     s.push(`${a.name}="${a.value}"`)
@@ -43,7 +42,7 @@ function getAttrs(e){
 function encodeElem(e){
   let o = e.children.length ? { } : e.textContent;
   for(let i of e.children){
-    o[i.localName+ " "+getAttrs(i).join(" ")] = encodeElem(i);
+    o[getAttrs(i).join(" ")] = encodeElem(i);
   }
   return o
 }
