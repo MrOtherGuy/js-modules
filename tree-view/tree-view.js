@@ -38,6 +38,9 @@ class TreeView extends HTMLElement{
     instance.dispatchEvent(new CustomEvent("dataload", {"detail":{"success": b},"bubbles":false, "cancelable":false}));
   }
   static createTargetIdFor(detail){
+    if(detail.hasAttribute("id")){
+      return  detail.id
+    }
     let s = "i";
     for(let i = 0; i < 4; i++){
       let i = Math.floor(Math.random() * 256);
@@ -62,7 +65,7 @@ class TreeView extends HTMLElement{
   
   static isContainer = (type) => (type === TreeView.TYPE_OBJECT || type === TreeView.TYPE_ARRAY);
   
-  static createRootLayer(obj,refSet,type){
+  static createRootLayer(obj,refSet,type,isJson){
     const frag = new DocumentFragment();
     if(TreeView.isContainer(type)){
       let keys = Object.getOwnPropertyNames(obj);
@@ -73,9 +76,10 @@ class TreeView extends HTMLElement{
       for(let key of keys){
         const valuetype = TreeView.getTypeOf(obj,key);
         if(TreeView.isContainer(valuetype)){
-          frag.appendChild(
-            TreeView.createLayer( key,obj[key],refSet,valuetype )
-          )
+          const treeContent = isJson 
+          ? TreeView.createSafeLayer( key, obj[key], valuetype )
+          : TreeView.createLayer( key, obj[key], refSet, valuetype );
+          frag.appendChild(treeContent)
         }else{
           frag.appendChild( TreeView.createLeafNode(key,obj,valuetype) )
         }
@@ -113,44 +117,72 @@ class TreeView extends HTMLElement{
     return details
   }
   
-  static createLayer(name,obj,refSet,type){
-    const details = TreeView.Node.firstChild.cloneNode(true);
-    details.firstChild.classList.add(type.description);
-    details.firstChild.textContent = name;
+  static createBaseLayer(obj,type){
+    const layer = TreeView.Node.firstChild.cloneNode(true);
+    layer.firstChild.classList.add(type.description);
     
     let keys = Object.getOwnPropertyNames(obj);
     if(type === TreeView.TYPE_ARRAY){
       keys.pop();
-      details.firstChild.setAttribute("data-label",obj.length)
+      layer.firstChild.setAttribute("data-label",obj.length)
     }
+    return {layer,keys}
+  }
+  
+  static createSafeLayer(name,obj,type){
+    
+    const {layer,keys} = TreeView.createBaseLayer(obj,type);
+    layer.firstChild.textContent = name;
+    
+    for(let key of keys){
+      const valuetype = TreeView.getTypeOf(obj,key);
+      if(TreeView.isContainer(valuetype)){
+        layer.appendChild(
+          TreeView.createSafeLayer(key,obj[key],valuetype)
+        )
+      }else{
+        layer.appendChild(
+          TreeView.createLeafNode(key,obj,valuetype)
+        )
+      }
+    }
+    return layer
+  }
+  
+  static createLayer(name,obj,refSet,type){
+    const {layer,keys} = TreeView.createBaseLayer(obj,type);
+    layer.firstChild.textContent = name;
     
     if(!refSet.has(obj)){
-      refSet.set(obj,details);
+      refSet.set(obj,layer);
       for(let key of keys){
         const valuetype = TreeView.getTypeOf(obj,key);
         if(TreeView.isContainer(valuetype)){
-          details.appendChild(
+          layer.appendChild(
             TreeView.createLayer(key,obj[key],refSet,valuetype)
           )
         }else{
-          details.appendChild(
+          layer.appendChild(
             TreeView.createLeafNode(key,obj,valuetype)
           )
         }
       }
+      refSet.delete(obj)
     }else{
       const id = TreeView.createTargetIdFor(refSet.get(obj));
       
-      details.addEventListener("toggle",(ev)=>{
-        if(details.open){
-          let det = document.getElementById(id);
-          det && det.focus();
+      layer.addEventListener("toggle",(ev)=>{
+        let root = ev.target.closest(".root");
+        let det = root ? root.querySelector(`#${id}`) : null;
+        if(det){
+          det.classList.add("focus");
+          setTimeout(()=>det.classList.remove("focus"),2000)
         }
       })
-      details.firstChild.classList.add("circular");
+      layer.firstChild.classList.add("circular");
     }
     
-    return details
+    return layer
   }
   
   static getTypeOf(some,key){
@@ -179,7 +211,7 @@ class TreeView extends HTMLElement{
     return TreeView.TYPE_UNDEFINED
   }
   
-  setSource(some){
+  setSource(some,isJson = false){
     const type = TreeView.getTypeOf(some);
     const tree = this.tree;
     while(tree.children.length > 1){
@@ -194,7 +226,7 @@ class TreeView extends HTMLElement{
     }
     
     if(TreeView.isContainer(type)){
-      tree.appendChild( TreeView.createRootLayer(some,this.refSet,type) );
+      tree.appendChild( TreeView.createRootLayer(some,this.refSet,type,isJson) );
       this.refSet.clear();
       const open = this.getAttribute("open");
       const openAll = open === "all";
@@ -227,11 +259,12 @@ class TreeView extends HTMLElement{
     if(typeof some === "string"){
       this.setAttribute("src",some);
       TreeView.loadSourceAsJSON(some)
-      .then((data) => this.setSource(data))
+      .then((data) => this.setSource(data,true))
       .catch(console.error)
     }else if(typeof some === "object"){
-      this.setSource(some);
-      this.removeAttribute("src")
+      this.setSource(some,false);
+      this.removeAttribute("src");
+      this.removeAttribute("data-filename");
     }
   }
   static parseText(text){
@@ -248,9 +281,7 @@ class TreeView extends HTMLElement{
         this.setAttribute("data-filename",file.name);
         file.text()
         .then(TreeView.parseText)
-        .then(json => {
-          this.src = json
-        })
+        .then(json => this.setSource(json,true))
         .catch(console.error)
       }
     }
@@ -282,7 +313,7 @@ class TreeView extends HTMLElement{
     let src = this.getAttribute("src");
     if(src){
       TreeView.loadSourceAsJSON(src)
-      .then(json => this.setSource(json))
+      .then(json => this.setSource(json,true))
       .then(() => TreeView.produceLoadedEvent(this,true))
       .catch(e => {
         console.error(e);
