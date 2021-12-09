@@ -11,8 +11,16 @@ details{
   background-repeat: no-repeat;
   background-size: 1.1em 1px;
 }
-
-details:focus{
+:host(.showInfo)::before{
+  content: "data: [Object]"
+}
+:host(.showInfo[src])::before{
+  content: "data: "attr(src)
+}
+:host(.showInfo[data-filename])::before{
+  content: "data: "attr(data-filename)
+}
+details.focus{
   background: #ddd;
 }  
 
@@ -57,4 +65,5 @@ summary{
 summary:hover{
   background-color: var(--tree-hover-background,#d3d);
 }
+details[id]{ transition: background-color 200ms sine }
 details[id] > summary{ color: #449 }
