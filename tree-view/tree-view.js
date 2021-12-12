@@ -251,6 +251,17 @@ class TreeView extends HTMLElement{
     return null
   }
   
+  get name(){
+    return this.getAttribute("data-filename")
+  }
+  set name(name){
+    if(!name){
+      this.removeAttribute("data-filename")
+    }else{
+      this.setAttribute("data-filename",name);
+    }
+  }
+  
   get src(){
     return this.getAttribute("src")
   }
