@@ -12,13 +12,13 @@ details{
   background-size: 1.1em 1px;
 }
 :host(.showInfo)::before{
-  content: "data: [Object]"
+  content: "[Object]"
 }
 :host(.showInfo[src])::before{
-  content: "data: "attr(src)
+  content: attr(src)
 }
 :host(.showInfo[data-filename])::before{
-  content: "data: "attr(data-filename)
+  content: attr(data-filename)
 }
 details.focus{
   background: #ddd;
