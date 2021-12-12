@@ -26,7 +26,7 @@ tree-view{
 </template>
 <div>
 <h2>Treeview demo</h2>
-<tree-view class="showInfo" open></tree-view>
+<tree-view class="showInfo" open data-drop></tree-view>
 </div>
 <footer>
 <p>Hint: try to drag and drop .json files to the view</p>
@@ -48,7 +48,6 @@ function encodeElem(e){
   return o
 }
 let view = document.getElementsByTagName("tree-view")[0];
-view.addDropHandler();
 view.src = {"html":encodeElem(document.documentElement)}
 </script>
 </body>
