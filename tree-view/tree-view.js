@@ -219,10 +219,17 @@ class TreeView extends HTMLElement{
     }
     
     tree.firstChild.className = type.description;
-    if(type === TreeView.TYPE_ARRAY){
-      tree.firstChild.setAttribute("data-label",some.length)
-    }else{
-      tree.firstChild.removeAttribute("data-label")
+    
+    switch(type){
+      case TreeView.TYPE_ARRAY:
+        tree.firstChild.setAttribute("data-label",some.length)
+        break;
+      case TreeView.TYPE_STRING:
+      case TreeView.TYPE_NUMBER:
+        tree.firstChild.setAttribute("data-label",some);
+        break
+      default:
+        tree.firstChild.removeAttribute("data-label")
     }
     
     if(TreeView.isContainer(type)){
@@ -237,6 +244,7 @@ class TreeView extends HTMLElement{
         }
       }
     }
+    return this
   }
   
   static async loadSourceAsJSON(src){
@@ -287,13 +295,18 @@ class TreeView extends HTMLElement{
     
     if (ev.dataTransfer && ev.dataTransfer.items) {
       const item = ev.dataTransfer.items[0];
-      if(item && item.kind === "file" && item.type.match(/^application\/json/)){
-        let file = item.getAsFile();
-        this.setAttribute("data-filename",file.name);
-        file.text()
-        .then(TreeView.parseText)
-        .then(json => this.setSource(json,true))
-        .catch(console.error)
+      if(item && item.kind === "file"){
+        if(item.type.match(/^application\/json/)){
+          let file = item.getAsFile();
+          this.name = file.name;
+          file.text()
+          .then(TreeView.parseText)
+          .then(json => this.setSource(json,true))
+          .catch(console.error)
+        }else{
+          this.setSource("unsupported file");
+          this.name = "unsupported file";
+        }
       }
     }
     this.onDragEnd();
@@ -313,11 +326,15 @@ class TreeView extends HTMLElement{
   }
   
   addDropHandler(){
+    
+    this.addDropHandler = () => (this);
+    
     this.addEventListener("drop",this.onDrop);
     this.addEventListener("dragover",this.onDragOver);
     this.addEventListener("dragenter",this.onDragEnter);
     this.addEventListener("dragend",this.onDragEnd);
     this.addEventListener("dragleave",this.onDragEnd);
+    return this
   }
   
   connectedCallback(){
@@ -332,6 +349,10 @@ class TreeView extends HTMLElement{
       })
     }
     this.tree.open = this.hasAttribute("open");
+    
+    if(this.hasAttribute("data-drop")){
+      this.addDropHandler();
+    }
   }
 }
 
