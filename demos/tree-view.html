@@ -34,8 +34,17 @@ tree-view{
 <script>
 function getAttrs(e){
   let s = [e.localName];
+  if(e.id){
+    s[0] += `#${e.id}`;
+  }
+  if(e.classList.length){
+    e.classList.forEach(cls => {s[0] += `.${cls}`});
+  }
   for(let i = 0; i<e.attributes.length; i++){
     let a = e.attributes[i];
+    if(a.name === "id" || a.name === "class"){
+      continue
+    }
     s.push(`${a.name}="${a.value}"`)
   }
   return s
