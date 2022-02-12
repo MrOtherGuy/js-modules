@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="../tab-view/tab-view.js"></script>
+</head>
+<body>
+<template id="tab-view-template">
+  <link as="style" type="text/css" rel="preload prefetch stylesheet" href="../tab-view/tab-view.css">
+  <div part="outerbox" class="outerbox">
+    <div id="tabbox" class="flex" part="tabbox"></div>
+    <div part="innerbox">
+      <slot name="innerbox"></slot>
+    </div>
+  </div>
+</template>
+<tab-view>
+  <view-box>
+    <h2>Tab 1</h2>
+    <p>Content for tab 1</p>
+  </view-box>
+  <view-box>
+    <h2>Tab 2</h2>
+    <p>This is the default look for tab-view</p>
+  </view-box>
+  <view-box selected>
+    <h2>Tab 3</h2>
+    <p>Tabs can be created using the following markup:</p>
+    <pre>&lttab-view>
+  &ltview-box>
+    &ltp>Your content here&lt/p>
+  &lt/view-box>
+&lt/tab-view>
+</pre>
+  </view-box>
+  <view-box>
+    <h2>Tab 4</h2>
+    <p>All tabs must have unique name.</p>
+    <p>Library sets automatic name via tab "index" but you can supply custom name with "data-name" attribute:</p><pre>&ltview-box data-name="my-tab">&lt/view-box></pre></p>
+  </view-box>
+  <view-box data-name="my-tab">
+    <p>This tab should be named "my-tab"</p>
+  </view-box>
+</tab-view>
+</body>
+</html>

@@ -1,0 +1,26 @@
+.flex{ display: flex; } 
+.outerbox{
+  border: 1px solid;
+}
+#tabbox{
+  border-bottom: 1px solid;
+}
+tab-view-tab{
+  border: 1px solid;
+  padding: 0.4em;
+  margin: 2px;
+  user-select: none;
+  cursor: pointer;
+  border-radius: 5px;
+}
+tab-view-tab:hover{
+  background-color: var(--tab-hover-background,rgba(100,160,200,0.4));
+}
+tab-view-tab.selected{
+  background-color: var(--selected-tab-background,rgba(100,160,200,0.4));
+  color: var(--selected-tab-color,inherit);
+}
+
+.innerbox{
+  padding: 1em;
+}
