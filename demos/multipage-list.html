@@ -3,9 +3,10 @@
 <head>
   <meta name="viewport" content="width=device-width"/>
   <meta charset="UTF-8">
+  <base href="../">
   <title>Multipage-list</title>
-  <script src="../multipage-list/multipage-list.js"></script>
-  <link href="../multipage-list/multipage-custom.css" rel="stylesheet" type="text/css">
+  <script src="multipage-list/multipage-list.js"></script>
+  <link href="multipage-list/multipage-custom.css" rel="stylesheet" type="text/css">
   <style type="text/css">
     #imageOverlay{
       display: flex;
@@ -25,7 +26,7 @@
 </head>
 <body>
 <template id="multipageinner-template">
-  <link as="style" type="text/css" rel="preload prefetch stylesheet" href="../multipage-list/multipage-list.css">
+  <link as="style" type="text/css" rel="preload prefetch stylesheet" href="multipage-list/multipage-list.css">
   <div part="box-container" class="multipage-box-container">
     <div id="multipage-innerbox">
       <slot  name="innerbox"></slot>
@@ -35,7 +36,7 @@
   </div>
 </template>
 <template id="pagetrack-template">
-  <link as="style" type="text/css" rel="preload prefetch stylesheet" href="../multipage-list/multipage-track.css">
+  <link as="style" type="text/css" rel="preload prefetch stylesheet" href="multipage-list/multipage-track.css">
   <div data-type="page-num" class="page-num">first</div>
   <div data-type="page-control" class="static previous">&lt;</div>
   <div data-type="page-num" class="page-num"></div>
@@ -65,7 +66,7 @@
 <multipage-list size="9" columns="3" tabindex="0"></multipage-list>
 <hr>
 <h2>lazy loaded multipage-list</h2>
-<multipage-lazy-list size="4" columns="2" tabindex="0" data-template="multipage-imagerow-template" src="testfiles/multipage-lazy-loaded-list.json"></multipage-lazy-list>
+<multipage-lazy-list size="4" columns="2" tabindex="0" data-template="multipage-imagerow-template" src="demos/testfiles/multipage-lazy-loaded-list.json"></multipage-lazy-list>
 <script>
 
 function popImage(img){

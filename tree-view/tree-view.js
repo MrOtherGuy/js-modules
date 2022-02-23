@@ -28,7 +28,7 @@ class TreeView extends HTMLElement{
     let link = document.createElement("link");
     link.setAttribute("type","text/css");
     link.setAttribute("rel","preload prefetch stylesheet");
-    link.setAttribute("href","modules/tree-view.css");
+    link.setAttribute("href","tree-view/tree-view.css");
     frag.appendChild(link);
 
     return frag

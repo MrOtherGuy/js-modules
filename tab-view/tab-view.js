@@ -168,7 +168,7 @@ class TabView extends HTMLElement{
     link.setAttribute("as","style");
     link.setAttribute("type","text/css");
     link.setAttribute("rel","preload prefetch stylesheet");
-    link.setAttribute("href","tab-view.css");
+    link.setAttribute("href","tab-view/tab-view.css");
     frag.appendChild(link);
     let outer = document.createElement("div");
     outer.classList.add("outerbox");
