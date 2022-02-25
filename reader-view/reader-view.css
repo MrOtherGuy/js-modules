@@ -23,6 +23,7 @@
   color: var(--color,black);
   padding-block: 3em;
   padding-inline: 3em;
+  white-space: pre-line;
 }
 
 @media print{
@@ -75,9 +76,9 @@
   cursor: pointer;
 }
 
-.radiogroup.sepia > .sepia,
-.radiogroup.night > .night,
-.radiogroup.pure > .pure,
+.radiogroup.theme-sepia > .theme-sepia,
+.radiogroup.theme-night > .theme-night,
+.radiogroup.theme-pure > .theme-pure,
 .radiogroup.sans > .sans,
 .radiogroup.serif > .serif{
   border-color: dodgerblue
@@ -165,7 +166,7 @@ label.serif{
 :host{
   --bgcolor: white;
   --color: black;
-  --toolbar-color: grey;
+  --toolbar-color: aliceblue;
   overflow-y: auto;
 }
 :host(.overflow-block){
@@ -175,35 +176,36 @@ label.serif{
   :host{
     --bgcolor: black;
     --color: silver;
+    --toolbar-color: #121214;
   }
 }
 .radiogroup:last-child label::before{
   content: "abc"
 }
-:host(.sepia){
+:host(.theme-sepia){
   --bgcolor: #d4cfc3;
   --color: #322;
   --toolbar-color: aliceblue;
 }
-:host(.night){
+:host(.theme-night){
   --bgcolor: #112;
   --color: silver;
   --toolbar-color: #1a2f49;
 }
-:host(.pure){
+:host(.theme-pure){
   --bgcolor: #1a2f49;
   --color: silver;
   --toolbar-color: #232837;
 }
-label.sepia{
+label.theme-sepia{
   background-color: #d4cfc3;
   color: #322;
 }
-label.night{
+label.theme-night{
   background-color: #112;
   color: silver;
 }
-label.pure{
+label.theme-pure{
   background-color: #1a2f49;
   color:silver
 }

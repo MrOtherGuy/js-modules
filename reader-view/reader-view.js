@@ -4,7 +4,7 @@ class ReaderView extends HTMLElement{
     let template = document.getElementById("reader-view-template");
     let templateContent = template ? template.content : ReaderView.Fragment();
     let cloned = templateContent.cloneNode(true);
-    const shadowRoot = this.attachShadow({mode: 'open'})
+    this.attachShadow({mode: 'open'})
     .appendChild(cloned);
   }
   clear(){
@@ -16,15 +16,15 @@ class ReaderView extends HTMLElement{
   setSource(obj){
     this.clear();
     let tryTitle = true;
-    let lines = obj.content.split("\n");
+    let lines = obj.content.split(/\r\n\r\n|\r\r|\n\n/g);
     for(let line of lines){
       line = line.trim();
       if(!line.length){
-        tryTitle = false;
         continue
       }
       if(tryTitle && line.startsWith("#") && line.length < 50){
         const title = line.slice(1);
+        tryTitle = false;
         document.title = title;
         this.appendChild(
           ReaderView.H1({ slot:"contentbox",text: title })
@@ -71,7 +71,11 @@ class ReaderView extends HTMLElement{
   }
   
   get outerbox(){
-    return this.shadowRoot.children[1]
+    return this.shadowRoot.querySelector(".outerbox");
+  }
+  
+  get controlbox(){
+    return this.shadowRoot.querySelector(".controls");
   }
   
   onDrop(ev){
@@ -107,7 +111,7 @@ class ReaderView extends HTMLElement{
     ev.preventDefault();
   }
   
-  onDragEnd(ev){
+  onDragEnd(){
     this.outerbox.classList.remove("dropover");
   }
   
@@ -121,10 +125,6 @@ class ReaderView extends HTMLElement{
     this.addEventListener("dragend",this.onDragEnd);
     this.addEventListener("dragleave",this.onDragEnd);
     return this
-  }
-  
-  get controlbox(){
-    return this.shadowRoot.querySelector(".controls");
   }
   
   connectedCallback(){
@@ -144,14 +144,14 @@ class ReaderView extends HTMLElement{
         this.textSize = Number(range.value);
       }
       range && range.addEventListener("change",setSizeFromRange);
-      range.previousElementSibling.addEventListener("click",(e)=>{
+      range.previousElementSibling.addEventListener("click",()=>{
         let oldValue = range.value;
         range.stepDown();
         if(range.value != oldValue){
           setSizeFromRange();
         }
       });
-      range.nextElementSibling.addEventListener("click",(e)=>{
+      range.nextElementSibling.addEventListener("click",()=>{
         let oldValue = range.value;
         range.stepUp();
         if(range.value != oldValue){
@@ -238,26 +238,31 @@ class ReaderView extends HTMLElement{
   }
   
   set theme(themeName){
-    if(!ReaderView.themeNames.includes(themeName)){
-      return
-    }
+
     let current = this.theme;
-    this.classList.remove(current);
-    this.classList.add(themeName);
+    const isSupportedTheme = ReaderView.themeNames.includes(themeName);
+    let radioGroup = this.shadowRoot.querySelector(".theme-group");
+    
     if(current){
-      let b = this.outerbox.querySelector(`label.${current}`);
+      radioGroup.classList.remove(current);
+      this.classList.remove(current);
     }
-    let node = this.outerbox.querySelector(`label.${themeName}`);
-    if(node){
-      node.parentNode.className = `radiogroup ${themeName}`;
-      node.children[0].checked = true;
-      ReaderView.DispatchSettingChanged(this,{
-        theme: themeName
-      });
+    if(isSupportedTheme){
+      radioGroup.classList.add(themeName);
+      this.classList.add(themeName);
+      let labelNode = radioGroup.querySelector(`label.${themeName}`);
+      if(labelNode){
+        labelNode.children[0].checked = true;
+      }
+    }
+    if(  (isSupportedTheme && (current !== themeName))
+      || (current && !isSupportedTheme) )
+    {
+      ReaderView.DispatchSettingChanged(this,{ theme: isSupportedTheme ? themeName : "" });
     }
   }
   
-  static themeNames = ["","pure","night","sepia"];
+  static themeNames = ["theme-pure","theme-night","theme-sepia"];
   static DispatchSettingChanged(target,eventinit){
     target.dispatchEvent(new CustomEvent("settingchange",{detail:eventinit}))
   }
@@ -268,7 +273,7 @@ class ReaderView extends HTMLElement{
       throw "radio-group description is not an object"
     }
     let box = ReaderView.DIV({
-      class: `radiogroup ${desc.selected}`
+      class: `radiogroup ${desc.name}-group ${desc.selected}`
     });
     for(let radioValue of desc.values){
       let label = ReaderView.LABEL(
@@ -277,7 +282,7 @@ class ReaderView extends HTMLElement{
       let node = ReaderView.INPUT(
         { type: "radio", name: desc.name, value: radioValue }
       );
-      if(box.selected === radioValue){
+      if(desc.selected === radioValue){
         node.setAttribute("checked",true);
       }
       label.appendChild(node);
@@ -376,8 +381,8 @@ class ReaderView extends HTMLElement{
                 }),
                 ReaderView.CreateRadioGroup({
                   name: "theme",
-                  values: ["sepia","pure","night"],
-                  selected: "pure"
+                  values: ReaderView.themeNames,
+                  selected: ""
                 })
               ]
             )
