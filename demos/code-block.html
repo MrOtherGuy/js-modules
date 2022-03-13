@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base href="../">
+<script type="module" src="code-block/code-block.js"></script>
+</head>
+<body>
+<p>Here is basic code block without fancy features</p>
+<code-block>This is some inline text in markup
+Second line for good measure
+
+The line above should be empty
+the end</code-block>
+<hr>
+<p>This example has been given a name in <code>data-name</code> attribute. And it uses simple quote highlighting.</p>
+<code-block class="nowrap" data-highlight="simple" src="demos/code-block.html" data-name="src=demos/code-block.html"></code-block>
+<hr>
+<p>This demonstrates more complex features. Inline text is shown in case resource at src attribute fails to load.</p><p>In addition, CSS highlighter can generate links inside comments based on <code>data-matchlinks</code> attribute (whoever thought this was a good idea...) <code-block data-highlight="simple" class="inline">&lt;code-block data-matchlinks="[\w-\.]+\.txt -> ./demos/testfiles/%s">&lt;/code-block></code-block></p>
+
+<code-block data-highlight="css" data-name="Highlighting for CSS, and inline fallback" data-matchlinks="[\w-\.]+\.txt -> ./demos/testfiles/%s" src="code-block/nonexistent.css">/* This should be shown in third example */
+body{
+  background: rgb(255,0,0); /* yes, red is nice */
+  color: green !important; /* Horrible use of important :( */
+}
+#some-id.with-random-class.andalsothings:hover{
+  background: cyan !important
+}
+/* This link should lead to text file: some/test6.txt and stuff
+And this */
+</code-block>
+<hr>
+<p></p>
+<code-block data-name="This should render CSS highlighted." data-highlight="css" src="code-block/code-block.css"></code-block>
+</body>
+</html>

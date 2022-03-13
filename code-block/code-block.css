@@ -1,0 +1,77 @@
+:host{
+  font-family: monospace;
+  white-space: pre-wrap;
+  display: block;
+}
+:host(.inline){
+  display: inline-block;
+}
+:host(.nowrap){
+  white-space: pre;
+  overflow-x: auto;
+}
+caption{
+  text-align: start;
+  padding-inline-start: 3em;
+}
+caption:empty{
+  display: none;
+}
+table{
+  border: 1px solid;
+  border-collapse: collapse;
+  border-spacing: 0px;
+  width: 100%;
+}
+tbody{
+  counter-reset: nlines 0;
+  color: lightblue;
+  background-color: rgb(40,37,43);
+}
+.line-number{
+  border-inline-end: 1px solid;
+  background-color: rgba(0,0,0,0.1);
+  color: silver;
+  vertical-align: top;
+  width: 0;
+  text-align: end;
+}
+
+@media screen and (prefers-color-scheme: dark){
+  tbody{
+    /* We're cool and assume dark mode by default */
+  }
+}
+tr{
+  counter-increment: nlines;
+}
+td,tr{
+  border-block: none;
+}
+td{
+  padding: 0 0.7em;
+}
+.line-number::before{
+  content: counter(nlines)
+}
+a{
+  color: dodgerblue;
+}
+a:visited{
+  color: orchid
+}
+/* These should really be moved into separate highlighter css */
+.comment{ color: rgb(50,180,90) }
+.selector{ color: lavenderblush }
+.pseudo{ color: rgb(200,180,250) }
+.id{ color: rgb(240, 148, 138) }
+.class{ color: aquamarine }
+.attribute{ color: rgb(120,230,170) }  
+.atrule{ color: lime }
+.atvalue{ color: lightblue }
+.property{ color: palegoldenrod }
+.value{ color: skyblue }
+.curly{ color: chocolate }
+.function{ color: silver }
+.important-tag{ color: orange }
+.quote{ color: burlywood }
