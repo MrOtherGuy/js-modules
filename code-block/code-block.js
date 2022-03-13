@@ -90,12 +90,15 @@ class CodeBlock extends HTMLElement{
             elem.highlighter.fn = new it.SimpleHighlighter();
         }
         elem.highlighter.ready = true;
+        elem.highlighter.waiting = false;
+        elem.determineAndLoadContent()
       })
       .catch(e => {
         console.error(e);
         elem.highlighter.failed = true;
+        ele.highlighter.waiting = false;
+        elem.determineAndLoadContent()
       })
-      .finally(elem.determineAndLoadContent());
     }
   }
   
@@ -142,16 +145,11 @@ class CodeBlock extends HTMLElement{
     if(typeof some.content !== "string"){
       some.content = some.content.toString();
     }
-    if(!some.content.endsWith("\n")){
-      didAddNL = true;
-      some.content += "\n";
-    }
     this.textContent = "";
     
     let innerbox = this.codeBox;
     const hasHighlighter = this.highlighter.ready;
-    
-    const LIMIT = 10000;
+    const LIMIT = 10000; // Arbitrary limit of 10k lines
     
     if(hasHighlighter){
       this.highlighter.fn.reset();
@@ -163,6 +161,8 @@ class CodeBlock extends HTMLElement{
       };
       Object.defineProperty(payload,"content",{get:()=>payload.match[0]});
       let counter = 0;
+      let lastIdx = 0;
+      
       while(payload.match && (counter++ < LIMIT)){
         innerbox.appendChild(CodeBlock.RowFragment.cloneNode(true));
         this.highlighter.fn.parse(
@@ -170,19 +170,34 @@ class CodeBlock extends HTMLElement{
           innerbox.lastElementChild.lastChild
         );
         payload.linkChanged = false;
+        lastIdx = (payload.match.index + payload.match[0].length);
         payload.match = re.exec(some.content);
+      }
+      // Handle case where the content does not end with newline
+      innerbox.appendChild(CodeBlock.RowFragment.cloneNode(true));
+      if(lastIdx < some.content.length){
+        payload.match = [some.content.slice(lastIdx)];
+        this.highlighter.fn.parse(
+          payload,
+          innerbox.lastElementChild.lastChild
+        );
       }
     }else{
       let match = re.exec(some.content);
       let counter = 0;
+      let lastIdx = 0;
+      
       while(match && (counter++ < LIMIT)){
         innerbox.appendChild(CodeBlock.RowFragment.cloneNode(true));
         innerbox.lastElementChild.lastChild.textContent = match[0];
+        lastIdx = (match.index + match[0].length);
         match = re.exec(some.content);
       }
-    }
-    if(!didAddNL){
+      // Handle case where the content does not end with newline
       innerbox.appendChild(CodeBlock.RowFragment.cloneNode(true));
+      if(lastIdx < some.content.length){
+        innerbox.lastElementChild.lastChild.textContent = some.content.slice(lastIdx);
+      }
     }
   }
   get codeBox(){
