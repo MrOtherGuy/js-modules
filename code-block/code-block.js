@@ -59,11 +59,21 @@ class CodeBlock extends HTMLElement{
       this.name = this.dataset.name
     }
     this.initialized = true;
+    
+    if(this.copyable){
+      CodeBlock.addClipboardListenerTo(this);
+    }
+    
     if(this.highlighter.empty && this.dataset.highlight){
       CodeBlock.addHighlighterTo(this);
       return
     }
+
     this.determineAndLoadContent();
+  }
+  
+  get copyable(){
+    return this.classList.contains("copy-able")
   }
   
   static addHighlighterTo(elem){
@@ -108,6 +118,35 @@ class CodeBlock extends HTMLElement{
       innerbox.children[0].remove();
     }
   }
+  
+  getText(){
+    return this.codeBox.textContent;
+  }
+  
+  static addClipboardListenerTo(aBlock){
+    let copyButton = aBlock.copyButton;
+    if(copyButton){
+      return
+    }
+    copyButton = aBlock.shadowRoot.querySelector(".copy-button");
+    aBlock.copyButton = copyButton;
+   
+    copyButton.addEventListener("click",(e) => {
+      e.preventDefault();
+      try{
+        let writing = navigator.clipboard.writeText(aBlock.getText());
+        writing.then(()=>{
+          copyButton.classList.add("copy-success");
+          setTimeout(()=>copyButton.classList.remove("copy-success"),2000);
+        });
+        
+      }catch(e){
+        console.error("couldn't copy content to clipboard");
+      }
+      
+    });
+    aBlock.copyButton.removeAttribute("hidden");
+  }
   static getSource(some){
     return new Promise((res, rej) => {
       if(some && typeof some === "string"){
@@ -141,7 +180,6 @@ class CodeBlock extends HTMLElement{
   
   async consumeData(some){
     const re = /.*\r?\n/g;
-    let didAddNL = false;
     if(typeof some.content !== "string"){
       some.content = some.content.toString();
     }
@@ -255,10 +293,21 @@ class CodeBlock extends HTMLElement{
     link.setAttribute("rel","preload prefetch stylesheet");
     link.setAttribute("href","code-block/code-block.css");
     frag.appendChild(link);
+    let outerBox = frag.appendChild(document.createElement("div"));
+    outerBox.setAttribute("part","outerBox");
+    outerBox.className = "outerBox";
+    let copyButton = outerBox.appendChild(document.createElement("div"));
+    copyButton.setAttribute("part","copyButton");
+    copyButton.className = "copy-button";
+    copyButton.textContent = "Copy";
+    copyButton.setAttribute("hidden",true);
+    copyButton.setAttribute("role","button");
     let table = document.createElement("table");
-    table.appendChild(document.createElement("caption"));
-    table.appendChild(document.createElement("tbody"));
-    frag.appendChild(table)
+    let caption = table.appendChild(document.createElement("caption"));
+    caption.setAttribute("part","title");
+    let content = table.appendChild(document.createElement("tbody"));
+    content.setAttribute("part","content");
+    outerBox.appendChild(table)
 
     return frag
   }

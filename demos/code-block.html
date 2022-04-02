@@ -13,13 +13,16 @@ The line above should be empty
 the end</code-block>
 <hr>
 <p>This example has been given a name in <code>data-name</code> attribute. And it uses simple quote highlighting.</p>
-<code-block data-highlight="simple" src="demos/code-block.html" data-name="src=demos/code-block.html"></code-block>
+<code-block data-highlight="simple" class="copy-able" src="demos/code-block.html" data-name="src=demos/code-block.html"></code-block>
 <hr>
-<p>This demonstrates more complex features. Inline text is shown in case resource at src attribute fails to load.</p><p>In addition, CSS highlighter can generate links inside comments based on <code>data-matchlinks</code> attribute (whoever thought this was a good idea...) <code-block data-highlight="simple" class="inline">&lt;code-block data-matchlinks="[\w-\.]+\.txt -> ./demos/testfiles/%s">&lt;/code-block></code-block></p>
+<p>This demonstrates more complex features. Inline text is shown in case resource at src attribute fails to load.</p><p>In addition, CSS highlighter can generate links inside comments based on <code>data-matchlinks</code> attribute (whoever thought this was a good idea...) <code-block data-highlight="simple" class="inline copy-able">&lt;code-block data-matchlinks="[\w-\.]+\.txt -> ./demos/testfiles/%s">&lt;/code-block></code-block> Also, optional copy-button which is enabled by setting <code>class="copy-able"</code></p>
 
-<code-block data-highlight="css" data-name="Highlighting for CSS, and inline fallback" data-matchlinks="[\w-\.]+\.txt -> ./demos/testfiles/%s" src="code-block/nonexistent.css">/* This should be shown in third example */
+<code-block class="copy-able" data-highlight="css" data-name="Highlighting for CSS, and inline fallback" data-matchlinks="[\w-\.]+\.txt -> ./demos/testfiles/%s" src="code-block/nonexistent.css">/* This should be shown in third example */
 body{
-  background: rgb(255,0,0); /* yes, red is nice */
+  background: rgb(255,
+  0,
+  0
+  ); /* yes, red is nice */
   color: green !important; /* Horrible use of important :( */
 }
 #some-id.with-random-class.andalsothings:hover{
