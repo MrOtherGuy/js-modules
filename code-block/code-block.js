@@ -23,8 +23,8 @@ class CodeBlock extends HTMLElement{
   determineAndLoadContent(){
     CodeBlock.getSource(this.src)
     .then(
-      (data) => this.consumeData(data),
-      (e) => this.consumeData({content:this.textContent})
+      (data) => this.consumeData(data,CodeBlock.InsertMode.Replace),
+      (e) => this.consumeData({content:this.textContent},CodeBlock.InsertMode.Replace)
     );
     
   }
@@ -119,10 +119,6 @@ class CodeBlock extends HTMLElement{
     }
   }
   
-  getText(){
-    return this.codeBox.textContent;
-  }
-  
   static addClipboardListenerTo(aBlock){
     let copyButton = aBlock.copyButton;
     if(copyButton){
@@ -134,7 +130,7 @@ class CodeBlock extends HTMLElement{
     copyButton.addEventListener("click",(e) => {
       e.preventDefault();
       try{
-        let writing = navigator.clipboard.writeText(aBlock.getText());
+        let writing = navigator.clipboard.writeText(aBlock.value);
         writing.then(()=>{
           copyButton.classList.add("copy-success");
           setTimeout(()=>copyButton.classList.remove("copy-success"),2000);
@@ -166,7 +162,7 @@ class CodeBlock extends HTMLElement{
     this.clearContent();
     let res = await CodeBlock.getSource(some);
     if(res.ok){
-      this.consumeData(res);
+      this.consumeData(res,CodeBlock.InsertMode.Replace);
     }
     return { ok: res.ok }
   }
@@ -177,15 +173,14 @@ class CodeBlock extends HTMLElement{
   set src(some){
     this.setSource(some);
   }
-  
-  async consumeData(some){
+  async consumeData(some,insertMode){
     const re = /.*\r?\n/g;
     if(typeof some.content !== "string"){
       some.content = some.content.toString();
     }
     this.textContent = "";
     
-    let innerbox = this.codeBox;
+    const fragment = new DocumentFragment();
     const hasHighlighter = this.highlighter.ready;
     const LIMIT = 10000; // Arbitrary limit of 10k lines
     
@@ -202,22 +197,22 @@ class CodeBlock extends HTMLElement{
       let lastIdx = 0;
       
       while(payload.match && (counter++ < LIMIT)){
-        innerbox.appendChild(CodeBlock.RowFragment.cloneNode(true));
+        fragment.appendChild(CodeBlock.RowFragment.cloneNode(true));
         this.highlighter.fn.parse(
           payload,
-          innerbox.lastElementChild.lastChild
+          fragment.lastElementChild.lastChild
         );
         payload.linkChanged = false;
         lastIdx = (payload.match.index + payload.match[0].length);
         payload.match = re.exec(some.content);
       }
       // Handle case where the content does not end with newline
-      innerbox.appendChild(CodeBlock.RowFragment.cloneNode(true));
+      fragment.appendChild(CodeBlock.RowFragment.cloneNode(true));
       if(lastIdx < some.content.length){
         payload.match = [some.content.slice(lastIdx)];
         this.highlighter.fn.parse(
           payload,
-          innerbox.lastElementChild.lastChild
+          fragment.lastElementChild.lastChild
         );
       }
     }else{
@@ -226,17 +221,40 @@ class CodeBlock extends HTMLElement{
       let lastIdx = 0;
       
       while(match && (counter++ < LIMIT)){
-        innerbox.appendChild(CodeBlock.RowFragment.cloneNode(true));
-        innerbox.lastElementChild.lastChild.textContent = match[0];
+        fragment.appendChild(CodeBlock.RowFragment.cloneNode(true));
+        fragment.lastElementChild.lastChild.textContent = match[0];
         lastIdx = (match.index + match[0].length);
         match = re.exec(some.content);
       }
       // Handle case where the content does not end with newline
-      innerbox.appendChild(CodeBlock.RowFragment.cloneNode(true));
+      fragment.appendChild(CodeBlock.RowFragment.cloneNode(true));
       if(lastIdx < some.content.length){
-        innerbox.lastElementChild.lastChild.textContent = some.content.slice(lastIdx);
+        fragment.lastElementChild.lastChild.textContent = some.content.slice(lastIdx);
       }
     }
+    let innerbox = this.codeBox;
+    
+    switch(insertMode){
+      case CodeBlock.InsertMode.Prepend:
+        innerbox.insertBefore(fragment,innerbox.firstChild);
+        break;
+      case CodeBlock.InsertMode.Replace:
+        this.clearContent();
+      case CodeBlock.InsertMode.Append:
+        // Push the first "line" of new fragment to the last line of old content, if old content exists
+        if(innerbox.lastElementChild){
+          let first = fragment.firstChild.lastElementChild;
+          for(let one of Array.from(first.childNodes)){
+            innerbox.lastElementChild.lastChild.appendChild(one)
+          }
+          fragment.firstChild.remove();
+        }
+        innerbox.appendChild(fragment);
+        break;
+      default:
+        console.warn("unimplemented insertMode")
+    }
+    
   }
   get codeBox(){
     return this.shadowRoot.querySelector("tbody");
@@ -246,24 +264,39 @@ class CodeBlock extends HTMLElement{
   }
   
   set value(thing){
-    this.clearContent();
-    if (typeof thing === "string"){
-      this.consumeData({content:thing});
+    if(typeof thing === "string"){
+      this.consumeData({content:thing},CodeBlock.InsertMode.Replace);
     }else if("content" in thing){
-      this.consumeData(thing);
+      this.consumeData(thing,CodeBlock.InsertMode.Replace);
     }else{
-      this.consumeData({content: thing.toString()})
+      this.consumeData({content: thing.toString()},CodeBlock.InsertMode.Replace);
     }
   }
   
   appendContent(thing){
     if(typeof thing === "string"){
-      this.consumeData({content:thing});
+      this.consumeData({content:thing},CodeBlock.InsertMode.Append);
     }else if("content" in thing){
-      this.consumeData(thing);
+      this.consumeData(thing,CodeBlock.InsertMode.Append);
     }else{
-      this.consumeData({content: thing.toString()})
+      this.consumeData({content: thing.toString()},CodeBlock.InsertMode.Append);
     }
+  }
+  
+  prependContent(thing){
+    if(typeof thing === "string"){
+      this.consumeData({content:thing},CodeBlock.InsertMode.Prepend);
+    }else if("content" in thing){
+      this.consumeData(thing,CodeBlock.InsertMode.Prepend);
+    }else{
+      this.consumeData({content: thing.toString()},CodeBlock.InsertMode.Prepend);
+    }
+  }
+  
+  static InsertMode = {
+    Replace : Symbol("replace"),
+    Append : Symbol("append"),
+    Prepend : Symbol("prepend")
   }
   
   static async TryLoadFile(name){

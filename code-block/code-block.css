@@ -108,7 +108,7 @@ a:visited{
 .pseudo{ color: rgb(200,180,250) }
 .id{ color: rgb(240, 148, 138) }
 .class{ color: aquamarine }
-.attribute{ color: rgb(120,230,170) }  
+.attribute{ color: orchid }  
 .atrule{ color: lime }
 .atvalue{ color: lightblue }
 .property{ color: palegoldenrod }
