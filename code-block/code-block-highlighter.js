@@ -62,6 +62,9 @@ class SimpleHighlighter extends BaseHighlighter{
     const length = info.content.length;
     while(pointer < length){
       let character = info.content[pointer++];
+      if(character === "\r"){
+        continue
+      }
       currentState = state.now();
       switch(currentState){
         case BaseHighlighter.BaseState:
@@ -147,7 +150,7 @@ class CSSHighlighter extends BaseHighlighter{
   }
   
   static parseCSS(info,state,targetNode){
-    let pointer = 0;
+    
     state.generateLinks = (info.linkMatcher instanceof RegExp) && (typeof info.linkGenerator === "function");
     
     if(state.generateLinks && info.linkChanged){
@@ -159,101 +162,138 @@ class CSSHighlighter extends BaseHighlighter{
       }
     }
     
-    const curlyRE = /[{}]/;
     let currentState;
-    const length = info.content.length;
+    const chars = Array.from(info.content);
+    if(info.content.endsWith("\r\n")){
+      chars[chars.length - 2] = "\n";
+      chars.pop();
+    }
+    const length = chars.length;
+    let tokenStart = 0;
+    let pointer = 0;
     while(pointer < length){
-      let character = info.content[pointer];
-      
+      let character = chars[pointer];
       currentState = state.now();
-      state.curly = currentState !== CSSHighlighter.State.Comment && curlyRE.test(character);
-      if(!state.curly){
-        state.token+=character;
-      }
       switch(currentState){
       
         case CSSHighlighter.State.Selector:
           switch(character){
             case "/":
-              if(info.content[pointer+1] === "*"){
+              if(chars[pointer+1] === "*"){
                 state.set(CSSHighlighter.State.Comment);
-                if(state.token.length > 1){
-                  state.token = state.token.slice(0,-1);
+                if(pointer - tokenStart > 0){
+                  state.token = chars.slice(tokenStart,pointer).join("");
                   CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Selector,targetNode);
-                  state.token += "/"
                 }
+                tokenStart = pointer;
+                pointer++;
               }
               break;
             case "{":
               state.set(CSSHighlighter.State.Property);
+              state.token = chars.slice(tokenStart,pointer).join("");
               CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Selector,targetNode);
+              tokenStart = pointer + 1;
+              targetNode.appendChild(CSSHighlighter.addBracket("{"));
               break;
             case "}":
+              state.token = chars.slice(tokenStart,pointer).join("");
               CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Text,targetNode);
+              tokenStart = pointer + 1;
+              
+              targetNode.appendChild(CSSHighlighter.addBracket("}"));
+              
               break;
             case "@":
               state.set(CSSHighlighter.State.AtRule);
           }
-          
           break;
       
         case CSSHighlighter.State.Comment:
-          switch(character){
-            case "*":
-              if(info.content[pointer+1] === "/"){
-                state.token += "/";
-                pointer++;
-                state.set(state.previous());
-                CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Comment,targetNode);
-              }
+          if(character === "*"){
+            if(chars[pointer+1] === "/"){
+              pointer++;
+              state.token = chars.slice(tokenStart,pointer+1).join("");
+              state.set(state.previous());
+              CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Comment,targetNode);
+              
+              tokenStart = pointer + 1;
+              break
+            }
           }
           break;
 
         case CSSHighlighter.State.Property:
           switch(character){
             case "/":
-              if(info.content[pointer+1] === "*"){
+              if(chars[pointer+1] === "*"){
                 state.set(CSSHighlighter.State.Comment);
               }
               break;
             case ":":
+              state.token = chars.slice(tokenStart,pointer+1).join("");
               CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Property,targetNode);
               state.set(CSSHighlighter.State.Value);
+              tokenStart = pointer + 1;
               break;
             case "}":
+              state.token = chars.slice(tokenStart,pointer).join("");
               CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Text,targetNode);
               state.set(CSSHighlighter.State.Selector);
+              tokenStart = pointer + 1;
+              targetNode.appendChild(CSSHighlighter.addBracket("}"));
           }
           break;
         case CSSHighlighter.State.Value:
+          let createToken = true;
+          let indexOffset = 1;
           switch(character){
             case ";":
-              CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Value,targetNode);
               state.set(CSSHighlighter.State.Property);
               break;
             case "}":
-              CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Value,targetNode);
+              indexOffset = 0;
               state.set(CSSHighlighter.State.Selector);
               break;
             case "(":
-              CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Value,targetNode);
               state.fnLevel++;
               state.set(CSSHighlighter.State.Function);
+              break;
+            default:
+              createToken = false;
+          }
+          if(createToken){
+            state.token = chars.slice(tokenStart,pointer+indexOffset).join("");
+            CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Value,targetNode);
+            tokenStart = pointer + 1;
+            if(indexOffset === 0){
+              targetNode.appendChild(CSSHighlighter.addBracket("}"))
+            }
           }
           break;
         case CSSHighlighter.State.AtRule:
           switch(character){
             case " ":
+              state.token = chars.slice(tokenStart,pointer+1).join("");
               CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.AtRule,targetNode);
               state.set(CSSHighlighter.State.AtValue);
+              tokenStart = pointer + 1;
           }
           break;
         case CSSHighlighter.State.AtValue:
+          let idxOffset = 0;
           switch(character){
             case ";":
+              indexOffset = 1;
             case "{":
+              state.token = chars.slice(tokenStart,pointer + idxOffset).join("");
               CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.AtValue,targetNode);
               state.set(CSSHighlighter.State.Selector);
+              tokenStart = pointer + 1;
+              if(!idxOffset){
+                targetNode.appendChild(CSSHighlighter.addBracket("{"));
+              }
+            default:
           }
           break
         case CSSHighlighter.State.Function:
@@ -261,26 +301,24 @@ class CSSHighlighter extends BaseHighlighter{
             case ")":
               state.fnLevel--;
               if(state.fnLevel === 0){
+                state.token = chars.slice(tokenStart,pointer).join("");
                 CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Function,targetNode);
-                state.token = ")";
+                tokenStart = pointer;
                 state.set(CSSHighlighter.State.Value);
               }
               break;
             case "}":
               state.fnLevel = 0;
-              state.set(CSSHighlighter.State.Selector)
+              state.set(CSSHighlighter.State.Selector);
           }
-        default:
-          false
-      }
-      if(state.curly){
-        CSSHighlighter.createElementFromToken(state,CSSHighlighter.State.Curly,targetNode,character);
       }
       pointer++
     }
-    if(state.token.length){
-      CSSHighlighter.createElementFromToken(state,currentState,targetNode)
+    if(pointer > tokenStart){
+      state.token = chars.slice(tokenStart,pointer).join("");
+      CSSHighlighter.createElementFromToken(state,currentState,targetNode);
     }
+    state.token = "";
   }
   
   static State = {
@@ -302,8 +340,15 @@ class CSSHighlighter extends BaseHighlighter{
     ["[","attribute"]
   ]);
   
-  static createElementFromToken(state,type,targetNode,c){
-    if(state.token.length === 0 && !c){
+  static addBracket(n){
+    let span = document.createElement("span");
+    span.className = "curly";
+    span.textContent = n;
+    return span
+  }
+  
+  static createElementFromToken(state,type,targetNode){
+    if(state.token.length === 0){
       return
     }
     let n = document.createElement("span");
@@ -341,12 +386,12 @@ class CSSHighlighter extends BaseHighlighter{
             break;
           }
         }
-        n.textContent = c || state.token;
+        n.textContent = state.token;
         break;
       case CSSHighlighter.State.Value:
-        let startImportant = state.token.indexOf("!");
+        let startImportant = state.token.indexOf("!important");
         if(startImportant === -1){
-          n.textContent = c || state.token;
+          n.textContent = state.token;
         }else{
           n.textContent = state.token.substr(0,startImportant);
           let importantTag = document.createElement("span");
@@ -354,19 +399,19 @@ class CSSHighlighter extends BaseHighlighter{
           importantTag.textContent = "!important";
           n.appendChild(importantTag);
           if(state.token.length > (9 + startImportant)){
-            n.append(";")
+            n.append(state.token.substr(startImportant + 10))
           }
         }
         break;
       case CSSHighlighter.State.Function:
-        n.textContent = c || state.token.slice(0,-1);
+        n.textContent = state.token;
         break
       default:
-        n.textContent = c || state.token;
+        n.textContent = state.token;
     }
     
     n.className = (`token ${type.description}`);
-    state.token = "";
+    
     targetNode.appendChild(n);
     return
   }
