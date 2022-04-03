@@ -173,6 +173,34 @@ class CodeBlock extends HTMLElement{
   set src(some){
     this.setSource(some);
   }
+  
+  lines(){
+    const lines = this.codeBox.querySelectorAll("tr");
+    const lineCount = lines.length;
+    let currentLine = 0;
+    return {
+      next: function() {
+          return currentLine < lineCount ? {
+            value: lines[currentLine++],
+            done: false
+          } : { done: true }
+      },
+      [Symbol.iterator]: function() { return this; }
+    }
+  }
+  
+  getNamedSection(name){
+    let i = 0;
+    let sections = this.codeBox.children;
+    while(i < sections.length){
+      if(sections[i].dataset.name === name){
+        return sections[i]
+      }
+      i++
+    }
+    return null
+  }
+  
   async consumeData(some,insertMode){
     const re = /.*\r?\n/g;
     if(typeof some.content !== "string"){
@@ -180,7 +208,18 @@ class CodeBlock extends HTMLElement{
     }
     this.textContent = "";
     
-    const fragment = new DocumentFragment();
+    let innerbox = this.codeBox;
+    
+    if(innerbox.children.length === 1 && innerbox.firstChild.textContent === ""){
+      insertMode = CodeBlock.InsertMode.Replace;
+    }
+    const INSERT_MODE = insertMode || some.insertMode || CodeBlock.InsertMode.Append;
+    
+    const aDiv = document.createElement("div");
+    if(some.name){
+      aDiv.setAttribute("data-name",some.name);
+    }
+    
     const hasHighlighter = this.highlighter.ready;
     const LIMIT = 10000; // Arbitrary limit of 10k lines
     
@@ -197,22 +236,22 @@ class CodeBlock extends HTMLElement{
       let lastIdx = 0;
       
       while(payload.match && (counter++ < LIMIT)){
-        fragment.appendChild(CodeBlock.RowFragment.cloneNode(true));
+        aDiv.appendChild(CodeBlock.RowFragment.cloneNode(true));
         this.highlighter.fn.parse(
           payload,
-          fragment.lastElementChild.lastChild
+          aDiv.lastElementChild.lastChild
         );
         payload.linkChanged = false;
         lastIdx = (payload.match.index + payload.match[0].length);
         payload.match = re.exec(some.content);
       }
       // Handle case where the content does not end with newline
-      fragment.appendChild(CodeBlock.RowFragment.cloneNode(true));
+      aDiv.appendChild(CodeBlock.RowFragment.cloneNode(true));
       if(lastIdx < some.content.length){
         payload.match = [some.content.slice(lastIdx)];
         this.highlighter.fn.parse(
           payload,
-          fragment.lastElementChild.lastChild
+          aDiv.lastElementChild.lastChild
         );
       }
     }else{
@@ -221,41 +260,58 @@ class CodeBlock extends HTMLElement{
       let lastIdx = 0;
       
       while(match && (counter++ < LIMIT)){
-        fragment.appendChild(CodeBlock.RowFragment.cloneNode(true));
-        fragment.lastElementChild.lastChild.textContent = match[0];
+        aDiv.appendChild(CodeBlock.RowFragment.cloneNode(true));
+        aDiv.lastElementChild.lastChild.textContent = match[0];
         lastIdx = (match.index + match[0].length);
         match = re.exec(some.content);
       }
       // Handle case where the content does not end with newline
-      fragment.appendChild(CodeBlock.RowFragment.cloneNode(true));
+      aDiv.appendChild(CodeBlock.RowFragment.cloneNode(true));
       if(lastIdx < some.content.length){
-        fragment.lastElementChild.lastChild.textContent = some.content.slice(lastIdx);
+        aDiv.lastElementChild.lastChild.textContent = some.content.slice(lastIdx);
       }
     }
-    let innerbox = this.codeBox;
     
-    switch(insertMode){
+    switch(INSERT_MODE){
       case CodeBlock.InsertMode.Prepend:
-        innerbox.insertBefore(fragment,innerbox.firstChild);
+        aDiv.lastElementChild.lastElementChild.append("\n")
+        innerbox.insertBefore(aDiv,innerbox.firstChild);
         break;
       case CodeBlock.InsertMode.Replace:
         this.clearContent();
       case CodeBlock.InsertMode.Append:
-        // Push the first "line" of new fragment to the last line of old content, if old content exists
+        // Push the first "line" of new section to the last line of old content, if old content exists
         if(innerbox.lastElementChild){
-          let first = fragment.firstChild.lastElementChild;
+          let first = aDiv.firstChild.lastElementChild;
+          let lastRowContent = this.lastContentLine;
           for(let one of Array.from(first.childNodes)){
-            innerbox.lastElementChild.lastChild.appendChild(one)
+            lastRowContent.appendChild(one)
           }
-          fragment.firstChild.remove();
+          aDiv.firstChild.remove();
         }
-        innerbox.appendChild(fragment);
+        if(aDiv.children.length){
+          innerbox.appendChild(aDiv);
+        }
+        break;
+      case CodeBlock.InsertMode.AppendLines:
+        if(aDiv.children.length){
+          let lastRowContent = this.lastContentLine;
+          if(lastRowContent){
+            lastRowContent.append("\n");
+          }
+          innerbox.appendChild(aDiv);
+        }
         break;
       default:
         console.warn("unimplemented insertMode")
     }
     
   }
+  
+  get lastContentLine(){
+    return this.codeBox.lastElementChild?.lastChild.lastChild;
+  }
+  
   get codeBox(){
     return this.shadowRoot.querySelector("tbody");
   }
@@ -263,39 +319,34 @@ class CodeBlock extends HTMLElement{
     return this.codeBox.textContent
   }
   
+  get InsertModes(){
+    return CodeBlock.InsertMode
+  }
+  
   set value(thing){
     if(typeof thing === "string"){
-      this.consumeData({content:thing},CodeBlock.InsertMode.Replace);
+      this.consumeData({content:thing,insertMode:CodeBlock.InsertMode.Replace});
     }else if("content" in thing){
       this.consumeData(thing,CodeBlock.InsertMode.Replace);
     }else{
-      this.consumeData({content: thing.toString()},CodeBlock.InsertMode.Replace);
+      this.consumeData({content: thing.toString(), insertMode: CodeBlock.InsertMode.Replace});
     }
   }
   
-  appendContent(thing){
+  insertContent(thing){
     if(typeof thing === "string"){
-      this.consumeData({content:thing},CodeBlock.InsertMode.Append);
+      this.consumeData({content:thing});
     }else if("content" in thing){
-      this.consumeData(thing,CodeBlock.InsertMode.Append);
+      this.consumeData(thing);
     }else{
-      this.consumeData({content: thing.toString()},CodeBlock.InsertMode.Append);
-    }
-  }
-  
-  prependContent(thing){
-    if(typeof thing === "string"){
-      this.consumeData({content:thing},CodeBlock.InsertMode.Prepend);
-    }else if("content" in thing){
-      this.consumeData(thing,CodeBlock.InsertMode.Prepend);
-    }else{
-      this.consumeData({content: thing.toString()},CodeBlock.InsertMode.Prepend);
+      this.consumeData({content: thing.toString()});
     }
   }
   
   static InsertMode = {
     Replace : Symbol("replace"),
     Append : Symbol("append"),
+    AppendLines : Symbol("appendlines"),
     Prepend : Symbol("prepend")
   }
   
@@ -324,6 +375,7 @@ class CodeBlock extends HTMLElement{
     link.setAttribute("as","style");
     link.setAttribute("type","text/css");
     link.setAttribute("rel","preload prefetch stylesheet");
+    // Change the relative stylesheet address here if required
     link.setAttribute("href","code-block/code-block.css");
     frag.appendChild(link);
     let outerBox = frag.appendChild(document.createElement("div"));
@@ -332,7 +384,6 @@ class CodeBlock extends HTMLElement{
     let copyButton = outerBox.appendChild(document.createElement("div"));
     copyButton.setAttribute("part","copyButton");
     copyButton.className = "copy-button";
-    copyButton.textContent = "Copy";
     copyButton.setAttribute("hidden",true);
     copyButton.setAttribute("role","button");
     let table = document.createElement("table");

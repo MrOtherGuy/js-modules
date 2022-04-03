@@ -45,10 +45,10 @@ tbody{
   90%{ opacity: 1 }
   100%{ opacity: 0 }
 }
+.copy-button::before{
+  content: "Copy"
+}
 .copy-button.copy-success::before{
-  position: absolute;
-  width: 0;
-  margin-left: -8ch;
   white-space:nowrap;
   content: "Copied";
   pointer-events: none;
@@ -64,8 +64,10 @@ tbody{
   right: .3em;
   cursor: pointer
 }
+.copy-button.copy-success,
 .copy-button:hover{
-  background-color: rgb(40,37,43);
+  background-color: dodgerblue;
+  color: black;
   opacity: 1;
 }
 
@@ -91,7 +93,7 @@ td,tr{
   border-block: none;
 }
 td{
-  padding: 0 0.7em;
+  padding: 1px 0.7em;
 }
 .line-number::before{
   content: counter(nlines)
@@ -102,13 +104,14 @@ a{
 a:visited{
   color: orchid
 }
+tbody > div{ display: contents }
 /* These should really be moved into separate highlighter css */
 .comment{ color: rgb(50,180,90) }
 .selector{ color: lavenderblush }
 .pseudo{ color: rgb(200,180,250) }
 .id{ color: rgb(240, 148, 138) }
 .class{ color: aquamarine }
-.attribute{ color: orchid }  
+.attribute{ color: rgb(100,200,250) }  
 .atrule{ color: lime }
 .atvalue{ color: lightblue }
 .property{ color: palegoldenrod }
