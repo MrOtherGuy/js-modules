@@ -351,6 +351,9 @@ class CodeBlock extends HTMLElement{
   }
   
   static async TryLoadFile(name){
+    if(!/[\w\d]+$/.test(name)){
+      throw {error: "invalid url", ok: false }
+    }
     let response = await fetch(name);
     if(response.ok){
       let content = await response.text();

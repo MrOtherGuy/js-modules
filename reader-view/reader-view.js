@@ -399,6 +399,9 @@ class ReaderView extends HTMLElement{
   }
   
   static async TryLoadFile(name){
+    if(!/[\w\d]+$/.test(name)){
+      throw "invalid url"
+    }
     let response = await fetch(name);
     if(response.ok){
       let content = await response.text();
