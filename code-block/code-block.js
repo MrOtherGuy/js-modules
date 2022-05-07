@@ -21,6 +21,10 @@ class CodeBlock extends HTMLElement{
   }
   
   determineAndLoadContent(){
+    const src = this.src;
+    if(!src){
+      return
+    }
     CodeBlock.getSource(this.src)
     .then(
       (data) => this.consumeData(data,CodeBlock.InsertMode.Replace),
@@ -313,7 +317,10 @@ class CodeBlock extends HTMLElement{
   }
   
   get codeBox(){
-    return this.shadowRoot.querySelector("tbody");
+    if(!this._codeBox){
+      this._codeBox = this.shadowRoot.querySelector("tbody");
+    }
+    return this._codeBox;
   }
   get value(){
     return this.codeBox.textContent
