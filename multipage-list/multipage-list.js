@@ -454,7 +454,18 @@ class MultipageViewer extends HidableElement{
   }
   
   setView(page){
-    this.page = Math.max(1,Math.min(this.pageCount,page));
+    const newpage = Math.max(1,Math.min(this.pageCount,page));
+    if(newpage === this.page){
+      return this.update();
+    }
+    const event = new CustomEvent('multipagechange', {
+      detail: {
+        current: newpage,
+        previous: this.page 
+      }
+    });
+    this.dispatchEvent(event);
+    this.page = newpage;
     return this.update();
   }
   
