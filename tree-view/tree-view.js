@@ -1,4 +1,5 @@
 class TreeView extends HTMLElement{
+  #layerTransformer;
   constructor(){
     super();
     this.refSet = new Map();
@@ -50,7 +51,12 @@ class TreeView extends HTMLElement{
     detail.tabIndex = 0;
     return s
   }
-  
+  setLayerTransform(fun){
+    if(typeof fun === "function" || fun === null){
+      this.#layerTransformer = fun
+    }
+    return this
+  }
   get tree(){
     return this.shadowRoot.querySelector("details");
   }
@@ -63,113 +69,131 @@ class TreeView extends HTMLElement{
   static TYPE_UNDEFINED = Symbol("undefined");
   static TYPE_NUMBER = Symbol("number");
   
-  static isContainer = (type) => (type === TreeView.TYPE_OBJECT || type === TreeView.TYPE_ARRAY);
+  static isContainer = (type) => (type === this.TYPE_OBJECT || type === this.TYPE_ARRAY);
   
-  static createRootLayer(obj,refSet,type,isJson){
+  static createRootLayer(obj,aTreeView,type,isJson){
     const frag = new DocumentFragment();
-    if(TreeView.isContainer(type)){
+    if(this.isContainer(type)){
       let keys = Object.getOwnPropertyNames(obj);
-      if(type === TreeView.TYPE_ARRAY){
+      if(type === this.TYPE_ARRAY){
         keys.pop();
       }
       
       for(let key of keys){
-        const valuetype = TreeView.getTypeOf(obj,key);
-        if(TreeView.isContainer(valuetype)){
+        const valuetype = this.getTypeOf(obj,key);
+        if(this.isContainer(valuetype)){
           const treeContent = isJson 
-          ? TreeView.createSafeLayer( key, obj[key], valuetype )
-          : TreeView.createLayer( key, obj[key], refSet, valuetype );
+          ? this.createSafeLayer( key, obj[key], aTreeView.#layerTransformer, valuetype )
+          : this.createLayer( key, obj[key], aTreeView.refSet, aTreeView.#layerTransformer, valuetype );
           frag.appendChild(treeContent)
         }else{
-          frag.appendChild( TreeView.createLeafNode(key,obj,valuetype) )
+          frag.appendChild( this.createLeafNode(key,obj,aTreeView.#layerTransformer,valuetype) )
         }
       }
     }
     return frag
   }
   
-  static createLeafNode(name,obj,type){
-    const details = TreeView.Node.firstChild.cloneNode(true);
+  static createLeafNode(name,obj,transformer,type){
+    const details = this.Node.firstChild.cloneNode(true);
+    const visualname = transformer
+          ? transformer(details,name)
+          : name;
+    if(visualname === this.IGNORE_LAYER){
+      return null
+    }
+    
     const summary = details.firstChild;
-    summary.textContent = name;
+    summary.append(visualname);
     summary.classList.add(type.description);
     let div = document.createElement("div");
     switch(type){
-      case TreeView.TYPE_STRING:
+      case this.TYPE_STRING:
         div.classList.add("string");
-      case TreeView.TYPE_NUMBER:
+      case this.TYPE_NUMBER:
         let text = obj[name];
-        div.textContent = text;
-        if(text.length > 20){
-          summary.setAttribute("data-label",text.slice(0,17)+"...")
+        div.append(text);
+        if(text.length > 30){
+          summary.setAttribute("data-label",text.slice(0,27)+"...")
         }else{
           summary.setAttribute("data-label",text)
         } 
         break;
-      case TreeView.TYPE_NULL:
-      case TreeView.TYPE_UNDEFINED:
-        div.textContent = type.description;
+      case this.TYPE_NULL:
+      case this.TYPE_UNDEFINED:
+        div.append(type.description);
         break
       default:
-        div.textContent = obj[name].toString();
+        div.append(obj[name].toString());
     }
     details.appendChild(div);
     return details
   }
   
-  static createBaseLayer(obj,type){
-    const layer = TreeView.Node.firstChild.cloneNode(true);
+  static createBaseLayer(obj,type,name,transformer){
+    const layer = this.Node.firstChild.cloneNode(true);
     layer.firstChild.classList.add(type.description);
     
+    const visualname = transformer
+          ? transformer(layer,name)
+          : name;
+    if(visualname === this.IGNORE_LAYER){
+      return {layer: null,keys:null}
+    }
+    
+    layer.firstChild.append(visualname);
     let keys = Object.getOwnPropertyNames(obj);
-    if(type === TreeView.TYPE_ARRAY){
+    if(type === this.TYPE_ARRAY){
       keys.pop();
       layer.firstChild.setAttribute("data-label",obj.length)
     }
     return {layer,keys}
   }
   
-  static createSafeLayer(name,obj,type){
+  static IGNORE_LAYER = Symbol("ignore");
+  
+  static createSafeLayer(name,obj,transformer,type){
     
-    const {layer,keys} = TreeView.createBaseLayer(obj,type);
-    layer.firstChild.textContent = name;
+    const {layer,keys} = this.createBaseLayer(obj,type,name,transformer);
+    
+    if(layer === null){
+      return null
+    }
     
     for(let key of keys){
-      const valuetype = TreeView.getTypeOf(obj,key);
-      if(TreeView.isContainer(valuetype)){
-        layer.appendChild(
-          TreeView.createSafeLayer(key,obj[key],valuetype)
-        )
-      }else{
-        layer.appendChild(
-          TreeView.createLeafNode(key,obj,valuetype)
-        )
+      const valuetype = this.getTypeOf(obj,key);
+      const sublayer = this.isContainer(valuetype)
+            ? this.createSafeLayer(key,obj[key],transformer,valuetype)
+            : this.createLeafNode(key,obj,transformer,valuetype);
+      if(sublayer){
+        layer.appendChild(sublayer)
       }
     }
     return layer
   }
   
-  static createLayer(name,obj,refSet,type){
-    const {layer,keys} = TreeView.createBaseLayer(obj,type);
-    layer.firstChild.textContent = name;
+  static createLayer(name,obj,refSet,transformer,type){
+    
+    const {layer,keys} = this.createBaseLayer(obj,type,name,transformer);
+    
+    if(layer === null){
+      return null
+    }
     
     if(!refSet.has(obj)){
       refSet.set(obj,layer);
       for(let key of keys){
-        const valuetype = TreeView.getTypeOf(obj,key);
-        if(TreeView.isContainer(valuetype)){
-          layer.appendChild(
-            TreeView.createLayer(key,obj[key],refSet,valuetype)
-          )
-        }else{
-          layer.appendChild(
-            TreeView.createLeafNode(key,obj,valuetype)
-          )
+        const valuetype = this.getTypeOf(obj,key);
+        const sublayer = this.isContainer(valuetype)
+            ? this.createLayer(key,obj[key],refSet,transformer,valuetype)
+            : this.createLeafNode(key,obj,transformer,valuetype);
+        if(sublayer){
+          layer.appendChild(sublayer)
         }
       }
       refSet.delete(obj)
     }else{
-      const id = TreeView.createTargetIdFor(refSet.get(obj));
+      const id = this.createTargetIdFor(refSet.get(obj));
       
       layer.addEventListener("toggle",(ev)=>{
         let root = ev.target.closest(".root");
@@ -190,25 +214,25 @@ class TreeView extends HTMLElement{
       some = some[key]
     }
     if(some === null){
-      return TreeView.TYPE_NULL
+      return this.TYPE_NULL
     }
     if(some === undefined){
-      return TreeView.TYPE_UNDEFINED
+      return this.TYPE_UNDEFINED
     }
     const type = typeof some;
     
     switch(type){
       case "object":
       
-        return Array.isArray(some) ? TreeView.TYPE_ARRAY : TreeView.TYPE_OBJECT
+        return Array.isArray(some) ? this.TYPE_ARRAY : this.TYPE_OBJECT
       case "string":
-        return TreeView.TYPE_STRING
+        return this.TYPE_STRING
       case "function":
-        return TreeView.TYPE_FUNCTION
+        return this.TYPE_FUNCTION
       case "number":
-        return TreeView.TYPE_NUMBER
+        return this.TYPE_NUMBER
     }
-    return TreeView.TYPE_UNDEFINED
+    return this.TYPE_UNDEFINED
   }
   
   setSource(some,isJson = false){
@@ -233,7 +257,8 @@ class TreeView extends HTMLElement{
     }
     
     if(TreeView.isContainer(type)){
-      tree.appendChild( TreeView.createRootLayer(some,this.refSet,type,isJson) );
+      const frag = TreeView.createRootLayer(some,this,type,isJson);
+      tree.appendChild( frag );
       this.refSet.clear();
       const open = this.getAttribute("open");
       const openAll = open === "all";
