@@ -15,8 +15,19 @@ tree-view::part(tree){
 tree-view{
   --tree-row-padding: 4px;
   --tree-row-indent: 1em;
-  --tree-hover-background: #579;
+  --tree-hover-background: #5ac;
   --tree-connector-position: 13px;
+  --deemphasized-color: darkgrey;
+}
+@media screen and (prefers-color-scheme: dark){
+  :root{
+    background-color: #11202c;
+    color: #b8babb;
+  }
+  tree-view{
+    --deemphasized-color: #41604c;
+    --tree-hover-background: #21404c;
+  }
 }
 </style>
 <script src="tree-view/tree-view.js"></script>
@@ -58,6 +69,21 @@ function encodeElem(e){
   return o
 }
 let view = document.getElementsByTagName("tree-view")[0];
+view.setLayerTransform((layer,name) => {
+  if(name === "script"){
+    // skips rendering of this layer
+    return TreeView.IGNORE_LAYER
+  }
+  // Transformation layer needs to return value to be used as layer summary
+  let idx = name.indexOf("#");
+  if(idx != -1){
+    let fragment = new DocumentFragment();
+    fragment.appendChild(document.createElement("span")).textContent = name.slice(0,idx);
+    fragment.appendChild(document.createElement("b")).textContent = name.slice(idx);
+    return fragment
+  }
+  return name
+});
 view.src = {"html":encodeElem(document.documentElement)}
 </script>
 </body>
