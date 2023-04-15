@@ -67,3 +67,7 @@ summary:hover{
 }
 details[id]{ transition: background-color 200ms sine }
 details[id] > summary{ color: #449 }
+
+.deemphasized,
+.deemphasized span{ color: var(--deemphasized-color,inherit) }
+span:empty{ display: none }
