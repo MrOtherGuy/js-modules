@@ -1,4 +1,4 @@
-class TreeView extends HTMLElement{
+export class TreeView extends HTMLElement{
   #layerTransformer;
   constructor(){
     super();

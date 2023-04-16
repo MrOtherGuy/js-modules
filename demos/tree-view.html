@@ -30,7 +30,7 @@ tree-view{
   }
 }
 </style>
-<script src="tree-view/tree-view.js"></script>
+<script type="module" src="tree-view/tree-view.js"></script>
 </head>
 <body>
 <template id="tree-template">
@@ -68,23 +68,31 @@ function encodeElem(e){
   }
   return o
 }
-let view = document.getElementsByTagName("tree-view")[0];
-view.setLayerTransform((layer,name) => {
-  if(name === "script"){
-    // skips rendering of this layer
-    return TreeView.IGNORE_LAYER
+document.onreadystatechange = function () {
+  if (document.readyState === "complete") {
+    let view = document.getElementsByTagName("tree-view")[0];
+    // Kinda hairy way to get access to the class
+    const TreeView = view.__proto__.constructor;
+    
+    view.setLayerTransform((layer,name) => {
+      if(name === "script"){
+        // skips rendering of this layer
+        return TreeView.IGNORE_LAYER
+      }
+      // Transformation layer needs to return value to be used as layer summary
+      let idx = name.indexOf("#");
+      if(idx != -1){
+        let fragment = new DocumentFragment();
+        fragment.appendChild(document.createElement("span")).textContent = name.slice(0,idx);
+        fragment.appendChild(document.createElement("b")).textContent = name.slice(idx);
+        return fragment
+      }
+      return name
+    });
+    view.src = {"html":encodeElem(document.documentElement)}
   }
-  // Transformation layer needs to return value to be used as layer summary
-  let idx = name.indexOf("#");
-  if(idx != -1){
-    let fragment = new DocumentFragment();
-    fragment.appendChild(document.createElement("span")).textContent = name.slice(0,idx);
-    fragment.appendChild(document.createElement("b")).textContent = name.slice(idx);
-    return fragment
-  }
-  return name
-});
-view.src = {"html":encodeElem(document.documentElement)}
+}
+
 </script>
 </body>
 </html>
